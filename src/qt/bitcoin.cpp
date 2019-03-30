@@ -67,14 +67,14 @@ StartupWindow::StartupWindow(QWidget *parent, Qt::WindowFlags f):
 	char s[32];
 	sprintf(s, ":/images/startup%d", v);
 
-//	QPixmap bkgnd(s);
-//    bkgnd = bkgnd.scaled(this->size(), Qt::IgnoreAspectRatio);
-//    QPalette palette;
-//    palette.setBrush(QPalette::Background, bkgnd);
-//    this->setPalette(palette);
-string str(s);
-string sty="border-image: url("+ str +");";
-this->setStyleSheet(sty.c_str());
+	QPixmap bkgnd(s);
+    bkgnd = bkgnd.scaled(this->size(), Qt::IgnoreAspectRatio);
+    QPalette palette;
+    palette.setBrush(QPalette::Background, bkgnd);
+    this->setPalette(palette);
+//string str(s);
+//string sty="border-image: url("+ str +");";
+//this->setStyleSheet(sty.c_str());
 
 // render label
 	info = new QLabel();
