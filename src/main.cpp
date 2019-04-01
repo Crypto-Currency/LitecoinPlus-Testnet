@@ -1349,22 +1349,16 @@ bool IsInitialBlockDownload()
 		return false;
 	
 	// only for testnet
-	if (fTestNet && nBestHeight == 0)
-  {
+	if (fTestNet && nBestHeight == 0) {
 		return false;
 	}
+	int minTolerated;
+	if (fTestNet)
+		minTolerated = 720;
+	else
+		minTolerated = 5;
 
-  if (pindexBest == NULL || nBestHeight < Checkpoints::GetTotalBlocksEstimate())
-    return true;
-  static int64 nLastUpdate;
-  static CBlockIndex* pindexLastBest;
-  if (pindexBest != pindexLastBest)
-  {
-    pindexLastBest = pindexBest;
-    nLastUpdate = GetTime();
-  }
-
-  bool res=(GetTime()-nLastUpdate < 10 && pindexBest->GetBlockTime() < GetTime() - 24 * 60 * 60);
+	bool res = (pindexBest == NULL || nBestHeight < Checkpoints::GetTotalBlocksEstimate()) || (pindexBest->GetBlockTime() < GetTime() - minTolerated * 60);
 	if (!res)
 		ibdLatched = true;
 	return (res);
@@ -3506,11 +3500,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 		    int v2 = 0;
 		    int v3 = 0;
 		    int v4 = 0;
-std::string incomingver=pfrom->cleanSubVer.c_str();
-int index= incomingver.find(':');
-std::string testver=incomingver.substr(index); // first chr should be ':'
-		    if (sscanf(testver.c_str(), ":%d.%d.%d.%d", &v1, &v2, &v3, &v4) == 4)
-//		    if (sscanf(pfrom->cleanSubVer.c_str(), "LitecoinPlus:%d.%d.%d.%d", &v1, &v2, &v3, &v4) == 4)
+		    if (sscanf(pfrom->cleanSubVer.c_str(), "LitecoinPlus:%d.%d.%d.%d", &v1, &v2, &v3, &v4) == 4)
 		    {
 				int cVer = 
                            1000000 * v1
