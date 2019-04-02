@@ -387,6 +387,9 @@ int main(int argc, char *argv[])
 				// by Simone: hide startup Window, startup completed
 				stw.hide();
 
+				// by Simone: load skin here
+				window.loadSkin();
+
                 // If -min option passed, start window minimized.
                 if(GetBoolArg("-min"))
                 {
