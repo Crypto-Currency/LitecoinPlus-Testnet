@@ -92,6 +92,12 @@ void updateBitcoinGUISplashMessage(char *message)
 	}
 }
 
+// by Simone: expose loadSkin call
+void BitcoinGUI::loadSkin()
+{
+	skinsPage->loadSkin();
+}
+
 BitcoinGUI::BitcoinGUI(QWidget *parent):
     QMainWindow(parent),
     clientModel(0),
