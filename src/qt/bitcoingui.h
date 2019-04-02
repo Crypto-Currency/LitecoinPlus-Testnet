@@ -101,6 +101,7 @@ public:
         functionality.
     */
     void setWalletModel(WalletModel *walletModel);
+	void loadSkin();
 
 protected:
     void changeEvent(QEvent *e);
