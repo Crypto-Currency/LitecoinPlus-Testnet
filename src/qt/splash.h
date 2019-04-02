@@ -2,11 +2,14 @@
 #define SPLASH_H
 
 #include <QDialog>
+#include <QDesktopWidget>
+#include <QApplication>
+#include <QCloseEvent>
+#include <QTimer>
 
 namespace Ui {
     class Splash;
 }
-class ClientModel;
 
 /** "About" dialog box */
 class Splash : public QDialog
@@ -16,13 +19,22 @@ class Splash : public QDialog
 public:
     explicit Splash(QWidget *parent = 0);
     ~Splash();
+	void showSplash();
+	void hideSplash();
+	void systemOnTop();
+	void setMessage(const char *message);
 
-    void setModel(ClientModel *model);
+protected:
+	void closeEvent(QCloseEvent *event);
+
 private:
     Ui::Splash *ui;
+	QTimer *timer;
+
+	void setRandomBackground();
 
 private slots:
-//    void on_buttonBox_accepted();
+	void updateTimer();
 };
 
 #endif // SPLASH_H
