@@ -1,8 +1,8 @@
 TEMPLATE = app
 TARGET = litecoinplus-qt
 VERSION = 2.0.1
-INCLUDEPATH += src src/json src/qt
-DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE
+INCLUDEPATH += src src/json src/qt /usr/include/libdb4
+DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE BOOST_ASIO_ENABLE_OLD_SERVICES
 CONFIG += no_include_pwd
 CONFIG += thread
 QT += network
