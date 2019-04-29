@@ -7,6 +7,8 @@
 - Added ARM support for daemon and QT
 - Fixed overwrite effect on splash when loading a theme
 - Rotate dynamically the splash for long stuff, like index rebuild or bootstrap import
+- Cross compile for Fedora 29 and Fedora 30
+- Fixed compatibilty with BOOST >= 1.66
 
 
 ***** Version 3.3.2.13 (DEV version, preparing for 4.0.0.1)
