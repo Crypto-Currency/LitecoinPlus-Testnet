@@ -1,4 +1,8 @@
-<b>LitecoinPlus V4.0.0.1</b> <br>
+```diff
+-DO NOT USE THIS SOFTWARE ON MAINNET !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+```
+
+<b>LitecoinPlus V4.1.0.1</b> <br>
 <br>
 For detailed changes list, see file changelog.txt
 <br>
