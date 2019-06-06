@@ -48,7 +48,7 @@ extern "C"
 extern bool fShutdown;
 extern bool fGenerateBitcoins;
 
-extern CBlockIndex* pindexBest;
+extern CBlockIndexV2* pindexBest;
 extern uint32_t nTransactionsUpdated;
 
 

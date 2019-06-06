@@ -10,7 +10,7 @@
 #include <list>
 #include <map>
 
-class CBlockIndex;
+class CBlockIndexV2;
 
 #include "json/json_spirit_reader_template.h"
 #include "json/json_spirit_writer_template.h"
@@ -127,7 +127,7 @@ extern const CRPCTable tableRPC;
 extern int64 nWalletUnlockTime;
 extern int64 AmountFromValue(const json_spirit::Value& value);
 extern json_spirit::Value ValueFromAmount(int64 amount);
-extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
+extern double GetDifficulty(CBlockIndexV2* blockindex = NULL);
 
 extern double GetPoSKernelPS();
 

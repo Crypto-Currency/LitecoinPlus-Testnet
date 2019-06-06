@@ -16,6 +16,8 @@
 class CWallet;
 class CBlock;
 class CBlockIndex;
+class CBlockIndexV2;
+class CDiskBlockIndexV3;
 class CKeyItem;
 class CReserveKey;
 class COutPoint;
@@ -61,17 +63,18 @@ extern CScript COINBASE_FLAGS;
 
 
 extern CCriticalSection cs_main;
-extern std::map<uint256, CBlockIndex*> mapBlockIndex;
+extern std::map<uint256, CBlockIndexV2*> mapBlockIndex;
+extern CCriticalSection cs_mdbi;
 extern std::set<std::pair<COutPoint, unsigned int> > setStakeSeen;
 extern uint256 hashGenesisBlock;
-extern CBlockIndex* pindexGenesisBlock;
+extern CBlockIndexV2* pindexGenesisBlock;
 extern unsigned int nStakeMinAge;
 extern int nCoinbaseMaturity;
 extern int nBestHeight;
 extern CBigNum bnBestChainTrust;
 extern CBigNum bnBestInvalidTrust;
 extern uint256 hashBestChain;
-extern CBlockIndex* pindexBest;
+extern CBlockIndexV2* pindexBest;
 extern unsigned int nTransactionsUpdated;
 extern uint64 nLastBlockTx;
 extern uint64 nLastBlockSize;
@@ -109,13 +112,13 @@ FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszM
 FILE* AppendBlockFile(unsigned int& nFileRet);
 bool LoadBlockIndex(bool fAllowNew=true);
 void PrintBlockTree();
-CBlockIndex* FindBlockByHeight(int nHeight);
+CBlockIndexV2* FindBlockByHeight(int nHeight);
 bool ProcessMessages(CNode* pfrom);
 bool SendMessages(CNode* pto, bool fSendTrickle);
 bool LoadExternalBlockFile(FILE* fileIn);
 void GenerateBitcoins(bool fGenerate, CWallet* pwallet);
 CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake=false);
-void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
+void IncrementExtraNonce(CBlock* pblock, CBlockIndexV2* pindexPrev, unsigned int& nExtraNonce);
 void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash1);
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits);
@@ -131,7 +134,7 @@ bool IsInitialBlockDownload();
 std::string GetWarnings(std::string strFor);
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock);
 uint256 WantedByOrphan(const CBlock* pblockOrphan);
-const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
+CBlockIndexV2* GetLastBlockIndex(CBlockIndexV2* pindex, bool fProofOfStake);
 void BitcoinMiner(CWallet *pwallet, bool fProofOfStake);
 void ResendWalletTransactions();
 
@@ -710,7 +713,7 @@ public:
      */
     bool ConnectInputs(CTxDB& txdb, MapPrevTx inputs,
                        std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
-                       const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, bool fStrictPayToScriptHash=true);
+                       CBlockIndexV2* pindexBlock, bool fBlock, bool fMiner, bool fStrictPayToScriptHash=true);
     bool ClientConnectInputs();
     bool CheckTransaction() const;
     bool AcceptToMemoryPool(CTxDB& txdb, bool fCheckInputs=true, bool* pfMissingInputs=NULL);
@@ -765,8 +768,8 @@ public:
 
 
     int SetMerkleBranch(const CBlock* pblock=NULL);
-    int GetDepthInMainChain(CBlockIndex* &pindexRet) const;
-    int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
+    int GetDepthInMainChain(CBlockIndexV2* &pindexRet) const;
+    int GetDepthInMainChain() const { CBlockIndexV2 *pindexRet; return GetDepthInMainChain(pindexRet); }
     bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
     int GetBlocksToMaturity() const;
     bool AcceptToMemoryPool(CTxDB& txdb, bool fCheckInputs=true);
@@ -923,7 +926,7 @@ public:
         return (int64)nTime;
     }
 
-    void UpdateTime(const CBlockIndex* pindexPrev);
+    void UpdateTime(CBlockIndexV2* pindexPrev);
 
     // ppcoin: entropy bit for stake modifier if chosen by modifier
     unsigned int GetStakeEntropyBit(unsigned int nHeight) const
@@ -1087,10 +1090,10 @@ public:
     }
 
 
-    bool DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex);
-    bool ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck=false);
-    bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
-    bool SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew);
+    bool DisconnectBlock(CTxDB& txdb, CBlockIndexV2* pindex);
+    bool ConnectBlock(CTxDB& txdb, CBlockIndexV2* pindex, bool fJustCheck=false);
+    bool ReadFromDisk(CBlockIndexV2* pindex, bool fReadTransactions=true);
+    bool SetBestChain(CTxDB& txdb, CBlockIndexV2* pindexNew);
     bool AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos);
     bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true) const;
     bool AcceptBlock(bool lessAggressive = false);
@@ -1099,12 +1102,8 @@ public:
     bool CheckBlockSignature() const;
 
 private:
-    bool SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew);
+    bool SetBestChainInner(CTxDB& txdb, CBlockIndexV2 *pindexNew);
 };
-
-
-
-
 
 
 /** The block chain is a tree shaped structure starting with the
@@ -1237,7 +1236,8 @@ public:
 
     bool IsInMainChain() const
     {
-        return (pnext || this == pindexBest);
+		return true;
+        //return (pnext || this == pindexBest);
     }
 
     bool CheckIndex() const
@@ -1273,10 +1273,10 @@ public:
         return pindex->GetMedianTimePast();
     }
 
-    /**
-     * Returns true if there are nRequired or more blocks of minVersion or above
-     * in the last nToCheck blocks, starting at pstart and going backwards.
-     */
+    //
+    // Returns true if there are nRequired or more blocks of minVersion or above
+    // in the last nToCheck blocks, starting at pstart and going backwards.
+    //
     static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart,
                                 unsigned int nRequired, unsigned int nToCheck);
 
@@ -1335,6 +1335,187 @@ public:
     }
 
     void print() const
+    {
+        printf("%s\n", ToString().c_str());
+    }
+};
+
+
+// by Simone: V2 of this class, optimizing RAM usage
+// the original version used too much RAM
+/** The block chain is a tree shaped structure starting with the
+ * genesis block at the root, with each block potentially having multiple
+ * candidates to be the next block.  pprev and pnext link a path through the
+ * main/longest chain.  A blockindex may have multiple pprev pointing back
+ * to it, but pnext will only point forward to the longest branch, or will
+ * be null if the block is not part of the longest chain.
+ */
+class CBlockIndexV2
+{
+private:
+	void flushDiskAccess();
+	CDiskBlockIndexV3* diskaccess;
+
+public:
+
+// the following variables must be stored in memory
+    const uint256* phashBlock;
+    CBlockIndexV2* pprev;
+    CBlockIndexV2* pnext;
+	unsigned int nFlags;  					// ppcoin: block index flags
+	uint64 nStakeModifier; 					// hash modifier for proof-of-stake
+
+// the following are methods to get values that previously were stored in memory
+    enum  
+    {
+        BLOCK_PROOF_OF_STAKE = (1 << 0),	// is proof-of-stake block
+        BLOCK_STAKE_ENTROPY  = (1 << 1),	// entropy bit for stake modifier
+        BLOCK_STAKE_MODIFIER = (1 << 2),	// regenerated stake modifier
+    };
+	
+// getters/setters for each non-stored in memory field
+    unsigned int nStakeModifierChecksum();
+    CBigNum bnChainTrust();
+
+// generic field
+    unsigned int nFile();
+    unsigned int nBlockPos();
+	int nHeight();
+	int64 nMint();
+	int64 nMoneySupply();
+
+// proof-of-stake specific fields
+	COutPoint prevoutStake();
+	unsigned int nStakeTime();
+	uint256 hashProofOfStake();
+
+// block header
+	int nVersion();
+	uint256 hashMerkleRoot();
+	unsigned int nTime();
+	unsigned int nBits();
+	unsigned int nNonce();
+
+    CBlockIndexV2();
+    CBlockIndexV2(uint256* hash, unsigned int nFileIn, unsigned int nBlockPosIn, CBlock& block);
+
+	CDiskBlockIndexV3* getDiskAccess(bool uncommitted = false);
+	CDiskBlockIndexV3* getPureDiskAccess();
+
+    CBlock GetBlockHeader()
+    {
+        CBlock block;
+        block.nVersion       = nVersion();
+        if (pprev)
+            block.hashPrevBlock = pprev->GetBlockHash();
+        block.hashMerkleRoot = hashMerkleRoot();
+        block.nTime          = nTime();
+        block.nBits          = nBits();
+        block.nNonce         = nNonce();
+        return block;
+    }
+
+    uint256 GetBlockHash()
+    {
+        return *phashBlock;
+    }
+
+    int64 GetBlockTime()
+    {
+        return (int64)nTime();
+    }
+
+    CBigNum GetBlockTrust();
+
+    bool IsInMainChain()
+    {
+        return (pnext || this == pindexBest);
+    }
+
+    bool CheckIndex()
+    {
+        return true;
+    }
+
+    enum { nMedianTimeSpan=11 };
+
+    int64 GetMedianTimePast()
+    {
+        int64 pmedian[nMedianTimeSpan];
+        int64* pbegin = &pmedian[nMedianTimeSpan];
+        int64* pend = &pmedian[nMedianTimeSpan];
+
+        CBlockIndexV2* pindex = this;
+        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
+            *(--pbegin) = pindex->GetBlockTime();
+
+        std::sort(pbegin, pend);
+        return pbegin[(pend - pbegin)/2];
+    }
+
+    int64 GetMedianTime()
+    {
+        CBlockIndexV2* pindex = this;
+        for (int i = 0; i < nMedianTimeSpan/2; i++)
+        {
+            if (!pindex->pnext)
+                return GetBlockTime();
+            pindex = pindex->pnext;
+        }
+        return pindex->GetMedianTimePast();
+    }
+
+    /**
+     * Returns true if there are nRequired or more blocks of minVersion or above
+     * in the last nToCheck blocks, starting at pstart and going backwards.
+     */
+    static bool IsSuperMajority(int minVersion, CBlockIndexV2* pstart,
+                                unsigned int nRequired, unsigned int nToCheck);
+
+
+    bool IsProofOfWork()
+    {
+        return !(nFlags & BLOCK_PROOF_OF_STAKE);
+    }
+
+    bool IsProofOfStake()
+    {
+        return (nFlags & BLOCK_PROOF_OF_STAKE);
+    }
+
+    void SetProofOfStake()
+    {
+        nFlags |= BLOCK_PROOF_OF_STAKE;
+    }
+
+    unsigned int GetStakeEntropyBit()
+    {
+        return ((nFlags & BLOCK_STAKE_ENTROPY) >> 1);
+    }
+
+    bool SetStakeEntropyBit(unsigned int nEntropyBit)
+    {
+        if (nEntropyBit > 1)
+            return false;
+        nFlags |= (nEntropyBit? BLOCK_STAKE_ENTROPY : 0);
+        return true;
+    }
+
+    bool GeneratedStakeModifier()
+    {
+        return (nFlags & BLOCK_STAKE_MODIFIER);
+    }
+
+    void SetStakeModifier(uint64 nModifier, bool fGeneratedStakeModifier)
+    {
+        nStakeModifier = nModifier;
+        if (fGeneratedStakeModifier)
+            nFlags |= BLOCK_STAKE_MODIFIER;
+    }
+
+    std::string ToString();
+
+    void print()
     {
         printf("%s\n", ToString().c_str());
     }
@@ -1427,9 +1608,253 @@ public:
 };
 
 
+/** by Simone: v2, we cache also the hash directly, it saves a lot of resources around the code */
+class CDiskBlockIndexV2 : public CBlockIndex
+{
+public:
+	uint256 hash;
+    uint256 hashPrev;
+    uint256 hashNext;
+
+    CDiskBlockIndexV2()
+    {
+        hash = 0;
+        hashPrev = 0;
+        hashNext = 0;
+    }
+
+    explicit CDiskBlockIndexV2(CBlockIndex* pindex) : CBlockIndex(*pindex)
+    {
+		hash = pindex->GetBlockHash();
+        hashPrev = (pprev ? pprev->GetBlockHash() : 0);
+        hashNext = (pnext ? pnext->GetBlockHash() : 0);
+    }
+
+    IMPLEMENT_SERIALIZE
+    (
+        if (!(nType & SER_GETHASH))
+            READWRITE(nVersion);
+
+        READWRITE(hashNext);
+        READWRITE(nFile);
+        READWRITE(nBlockPos);
+        READWRITE(nHeight);
+        READWRITE(nMint);
+        READWRITE(nMoneySupply);
+        READWRITE(nFlags);
+        READWRITE(nStakeModifier);
+        if (IsProofOfStake())
+        {
+            READWRITE(prevoutStake);
+            READWRITE(nStakeTime);
+            READWRITE(hashProofOfStake);
+        }
+        else if (fRead)
+        {
+            const_cast<CDiskBlockIndexV2*>(this)->prevoutStake.SetNull();
+            const_cast<CDiskBlockIndexV2*>(this)->nStakeTime = 0;
+            const_cast<CDiskBlockIndexV2*>(this)->hashProofOfStake = 0;
+        }
+
+        // block header
+        READWRITE(this->nVersion);
+        READWRITE(hashPrev);
+        READWRITE(hashMerkleRoot);
+        READWRITE(nTime);
+        READWRITE(nBits);
+        READWRITE(nNonce);
+
+		// add the hash of the current block
+		READWRITE(hash);
+    )
+
+    uint256 GetBlockHash() const
+    {
+	    CBlock block;
+	    block.nVersion        = nVersion;
+	    block.hashPrevBlock   = hashPrev;
+	    block.hashMerkleRoot  = hashMerkleRoot;
+	    block.nTime           = nTime;
+	    block.nBits           = nBits;
+	    block.nNonce          = nNonce;
+	    return (hash != 0) ? hash : block.GetHash();
+    }
 
 
+    std::string ToString() const
+    {
+        std::string str = "CDiskBlockIndexV2(";
+        str += CBlockIndex::ToString();
+        str += strprintf("\n                hashBlock=%s, hashPrev=%s, hashNext=%s)",
+            GetBlockHash().ToString().c_str(),
+            hashPrev.ToString().c_str(),
+            hashNext.ToString().c_str());
+        return str;
+    }
 
+    void print() const
+    {
+        printf("%s\n", ToString().c_str());
+    }
+};
+
+/** by Simone: v3, we remove some stuff from memory and place it into this class, so that CBlockIndex becomes much smaller. Data is read on the fly when necessary */
+class CDiskBlockIndexV3 : public CBlockIndexV2
+{
+public:
+	bool forConversion;
+	uint256 hash;
+    uint256 hashPrev;
+    uint256 hashNext;
+
+// originally in memory, we just save it, is crazy to calculate for nothing at every boot !
+    unsigned int nStakeModifierChecksum;
+    CBigNum bnChainTrust;
+
+// stuff that comes from original version of CBlockIndex
+	unsigned int nFile;
+	unsigned int nBlockPos;
+	int nHeight;
+	int64 nMint;
+	int64 nMoneySupply;
+
+// proof-of-stake specific fields
+	COutPoint prevoutStake;
+	unsigned int nStakeTime;
+	uint256 hashProofOfStake;
+
+// block header
+	int nVersion;
+	uint256 hashMerkleRoot;
+	unsigned int nTime;
+	unsigned int nBits;
+	unsigned int nNonce;
+
+// internal flags
+	bool uncommitted;		// not committed to DB yet, must keep in memory
+
+    CDiskBlockIndexV3()
+    {
+		forConversion = false;
+		uncommitted = false;
+        hash = 0;
+        hashPrev = 0;
+        hashNext = 0;
+		nFile = 0;
+		nBlockPos = 0;
+		nHeight = 0;
+		nMint = 0;
+		nMoneySupply = 0;
+		prevoutStake.SetNull();
+		nStakeTime = 0;
+		hashProofOfStake = 0;
+		nVersion = 0;
+		hashMerkleRoot = 0;
+		nTime = 0;
+		nBits = 0;
+		nNonce = 0;
+		nStakeModifierChecksum = 0;
+		bnChainTrust = 0;
+    }
+
+    explicit CDiskBlockIndexV3(CBlockIndexV2* pindex) : CBlockIndexV2(*pindex)
+    {
+	// set basic hashes
+		forConversion = false;
+		uncommitted = false;
+		hash = pindex->GetBlockHash();
+        hashPrev = (pprev ? pprev->GetBlockHash() : 0);
+        hashNext = (pnext ? pnext->GetBlockHash() : 0);
+		nFile = 0;
+		nBlockPos = 0;
+		nHeight = 0;
+		nMint = 0;
+		nMoneySupply = 0;
+		prevoutStake.SetNull();
+		nStakeTime = 0;
+		hashProofOfStake = 0;
+		nVersion = 0;
+		hashMerkleRoot = 0;
+		nTime = 0;
+		nBits = 0;
+		nNonce = 0;
+		nStakeModifierChecksum = 0;
+		bnChainTrust = 0;
+    }
+
+	void reInit(CBlockIndexV2* pindex)
+	{
+	// set basic hashes
+		hash = pindex->GetBlockHash();
+        hashPrev = (pprev ? pprev->GetBlockHash() : 0);
+        hashNext = (pnext ? pnext->GetBlockHash() : 0);
+	}
+
+    IMPLEMENT_SERIALIZE
+    (
+        if (!(nType & SER_GETHASH))
+            READWRITE(nVersion);
+
+        READWRITE(hashNext);
+        READWRITE(nFile);
+        READWRITE(nBlockPos);
+        READWRITE(nHeight);
+        READWRITE(nMint);
+        READWRITE(nMoneySupply);
+        READWRITE(nFlags);
+        READWRITE(nStakeModifier);
+        if (const_cast<CDiskBlockIndexV3*>(this)->IsProofOfStake())
+        {
+            READWRITE(prevoutStake);
+            READWRITE(nStakeTime);
+            READWRITE(hashProofOfStake);
+        }
+        else if (fRead)
+        {
+            const_cast<CDiskBlockIndexV3*>(this)->prevoutStake.SetNull();
+            const_cast<CDiskBlockIndexV3*>(this)->nStakeTime = 0;
+            const_cast<CDiskBlockIndexV3*>(this)->hashProofOfStake = 0;
+        }
+
+        // block header
+        READWRITE(this->nVersion);
+        READWRITE(hashPrev);
+        READWRITE(hashMerkleRoot);
+        READWRITE(nTime);
+        READWRITE(nBits);
+        READWRITE(nNonce);
+
+		// add the hash of the current block
+		READWRITE(hash);
+
+		// add stuff that was previously in memory
+		if (!forConversion)
+		{
+			READWRITE(nStakeModifierChecksum);
+			READWRITE(bnChainTrust);
+		}
+    )
+
+    uint256 GetBlockHash() const
+    {
+	    CBlock block;
+	    block.nVersion        = nVersion;
+	    block.hashPrevBlock   = hashPrev;
+	    block.hashMerkleRoot  = hashMerkleRoot;
+	    block.nTime           = nTime;
+	    block.nBits           = nBits;
+	    block.nNonce          = nNonce;
+	    return (hash != 0) ? hash : block.GetHash();
+    }
+
+
+    std::string ToString();
+
+    void print()
+    {
+        printf("%s\n", ToString().c_str());
+    }
+};
 
 
 
@@ -1447,19 +1872,19 @@ public:
     {
     }
 
-    explicit CBlockLocator(const CBlockIndex* pindex)
+    explicit CBlockLocator(CBlockIndexV2* pindex)
     {
         Set(pindex);
     }
 
     explicit CBlockLocator(uint256 hashBlock)
     {
-        std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+        std::map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.find(hashBlock);
         if (mi != mapBlockIndex.end())
             Set((*mi).second);
     }
 
-    CBlockLocator(const std::vector<uint256>& vHaveIn)
+    CBlockLocator(std::vector<uint256>& vHaveIn)
     {
         vHave = vHaveIn;
     }
@@ -1481,90 +1906,10 @@ public:
         return vHave.empty();
     }
 
-    void Set(const CBlockIndex* pindex)
-    {
-        vHave.clear();
-        int nStep = 1;
-        while (pindex)
-        {
-            vHave.push_back(pindex->GetBlockHash());
+    void Set(CBlockIndexV2* pindex);
+    CBlockIndexV2* GetBlockIndex();
 
-            // Exponentially larger steps back
-            for (int i = 0; pindex && i < nStep; i++)
-			{
-                pindex = pindex->pprev;
-			}
-            if (vHave.size() > 10)
-                nStep *= 2;
-        }
-        vHave.push_back((!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet));
-    }
-
-    int GetDistanceBack()
-    {
-        // Retrace how far back it was in the sender's branch
-        int nDistance = 0;
-        int nStep = 1;
-        BOOST_FOREACH(const uint256& hash, vHave)
-        {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return nDistance;
-            }
-            nDistance += nStep;
-            if (nDistance > 10)
-                nStep *= 2;
-        }
-        return nDistance;
-    }
-
-    CBlockIndex* GetBlockIndex()
-    {
-        // Find the first block the caller has in the main chain
-        BOOST_FOREACH(const uint256& hash, vHave)
-        {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return pindex;
-            }
-        }
-        return pindexGenesisBlock;
-    }
-
-    uint256 GetBlockHash()
-    {
-        // Find the first block the caller has in the main chain
-        BOOST_FOREACH(const uint256& hash, vHave)
-        {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return hash;
-            }
-        }
-        return (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet);
-    }
-
-    int GetHeight()
-    {
-        CBlockIndex* pindex = GetBlockIndex();
-        if (!pindex)
-            return 0;
-        return pindex->nHeight;
-    }
 };
-
-
-
-
 
 
 

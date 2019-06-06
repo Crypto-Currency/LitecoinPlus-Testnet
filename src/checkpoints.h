@@ -11,7 +11,7 @@
 #define CHECKPOINT_MAX_SPAN (60 * 60 * 4) // max 4 hours before latest block
 
 class uint256;
-class CBlockIndex;
+class CBlockIndexV2;
 class CSyncCheckpoint;
 
 /** Block-chain checkpoints are compiled-in sanity checks.
@@ -25,19 +25,19 @@ namespace Checkpoints
     // Return conservative estimate of total number of blocks, 0 if unknown
     int GetTotalBlocksEstimate();
 
-    // Returns last CBlockIndex* in mapBlockIndex that is a checkpoint
-    CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex);
+    // Returns last CBlockIndexV2* in mapBlockIndex that is a checkpoint
+    CBlockIndexV2* GetLastCheckpoint(const std::map<uint256, CBlockIndexV2*>& mapBlockIndex);
 
     extern uint256 hashSyncCheckpoint;
     extern CSyncCheckpoint checkpointMessage;
     extern uint256 hashInvalidCheckpoint;
     extern CCriticalSection cs_hashSyncCheckpoint;
 
-    CBlockIndex* GetLastSyncCheckpoint();
+    CBlockIndexV2* GetLastSyncCheckpoint();
     bool WriteSyncCheckpoint(const uint256& hashCheckpoint);
     bool AcceptPendingSyncCheckpoint();
     uint256 AutoSelectSyncCheckpoint();
-    bool CheckSync(const uint256& hashBlock, const CBlockIndex* pindexPrev);
+    bool CheckSync(const uint256& hashBlock, CBlockIndexV2* pindexPrev);
     bool WantedByPendingSyncCheckpoint(uint256 hashBlock);
     bool ResetSyncCheckpoint();
     void AskForPendingSyncCheckpoint(CNode* pfrom);

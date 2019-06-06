@@ -264,6 +264,9 @@ protected:
     }
 
 public:
+
+	CScript& operator= ( const CScript & ) = default;
+
     CScript() { }
     CScript(const CScript& b) : std::vector<unsigned char>(b.begin(), b.end()) { }
     CScript(const_iterator pbegin, const_iterator pend) : std::vector<unsigned char>(pbegin, pend) { }

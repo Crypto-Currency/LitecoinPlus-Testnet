@@ -51,6 +51,7 @@ void StartShutdown()
 #endif
 }
 
+extern CTxDB *gtxdb;
 void Shutdown(void* parg)
 {
     static CCriticalSection cs_Shutdown;
@@ -77,6 +78,9 @@ void Shutdown(void* parg)
         bitdb.Flush(false);
         StopNode();
 	    UnregisterNodeSignals(GetNodeSignals());
+		if (gtxdb) {
+			gtxdb->Close();
+		}
         bitdb.Flush(true);
         boost::filesystem::remove(GetPidFile());
         UnregisterWallet(pwalletMain);
@@ -85,6 +89,7 @@ void Shutdown(void* parg)
         Sleep(50);
         printf("LitecoinPlus exited\n\n");
         fExit = true;
+		fShutdown = false;
 
 #ifndef QT_GUI
         // ensure non-UI client gets exited here, but let Bitcoin-Qt reach 'return 0;' in bitcoin.cpp
@@ -306,6 +311,9 @@ std::string HelpMessage()
     return strUsage;
 }
 
+// by Simone: before doing anything, let's capture this status
+bool txIndexFileExists = true;
+
 /** Initialize bitcoin.
  *  @pre Parameters should be parsed and config file should be read.
  */
@@ -356,7 +364,8 @@ bool AppInit2()
     // ********************************************************* Step 2: parameter interactions
     SoftSetBoolArg("-listen", true); // just making sure
 
-    fTestNet = GetBoolArg("-testnet");
+    //fTestNet = GetBoolArg("-testnet");
+    fTestNet = true;
 
     if (mapArgs.count("-bind")) {
         // when specifying an explicit binding address, you want to listen on it
@@ -506,6 +515,17 @@ bool AppInit2()
     }
 
     std::ostringstream strErrors;
+
+
+	// by Simone: we check if the file txindex.dat exists, otherwise we need to create it from the old index, the guts will take care of it
+	boost::filesystem::path path = GetDataDir() / "txindex.dat";
+	boost::filesystem::path pathBlk = GetDataDir() / "blkindex.dat";
+	if ((!boost::filesystem::exists(path)) && (boost::filesystem::exists(pathBlk)))
+	{
+		boost::filesystem::path pathOld = GetDataDir() / "blkindex.dat";
+		boost::filesystem::rename(pathOld, path);
+		txIndexFileExists = false;
+	}
 
     if (fDaemon)
         fprintf(stdout, "LitecoinPlus server starting\n");
@@ -683,7 +703,7 @@ bool AppInit2()
     if (GetBoolArg("-loadblockindextest"))
     {
         CTxDB txdb("r");
-        txdb.LoadBlockIndex();
+        txdb.blkDb->LoadBlockIndex();
         PrintBlockTree();
         return false;
     }
@@ -714,12 +734,12 @@ bool AppInit2()
     {
         string strMatch = mapArgs["-printblock"];
         int nFound = 0;
-        for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
+        for (map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
         {
             uint256 hash = (*mi).first;
             if (strncmp(hash.ToString().c_str(), strMatch.c_str(), strMatch.size()) == 0)
             {
-                CBlockIndex* pindex = (*mi).second;
+                CBlockIndexV2* pindex = (*mi).second;
                 CBlock block;
                 block.ReadFromDisk(pindex);
                 block.BuildMerkleTree();
@@ -820,7 +840,7 @@ bool AppInit2()
 
     RegisterWallet(pwalletMain);
 
-    CBlockIndex *pindexRescan = pindexBest;
+    CBlockIndexV2 *pindexRescan = pindexBest;
     if (GetBoolArg("-rescan"))
         pindexRescan = pindexGenesisBlock;
     else
@@ -830,10 +850,10 @@ bool AppInit2()
         if (walletdb.ReadBestBlock(locator))
             pindexRescan = locator.GetBlockIndex();
     }
-    if (pindexBest != pindexRescan && pindexBest && pindexRescan && pindexBest->nHeight > pindexRescan->nHeight)
+    if (pindexBest != pindexRescan && pindexBest && pindexRescan && pindexBest->nHeight() > pindexRescan->nHeight())
     {
         uiInterface.InitMessage(_("Rescanning..."));
-        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
+        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight() - pindexRescan->nHeight(), pindexRescan->nHeight());
         nStart = GetTimeMillis();
         pwalletMain->ScanForWalletTransactions(pindexRescan, true);
         printf(" rescan      %15" PRI64d "ms\n", GetTimeMillis() - nStart);

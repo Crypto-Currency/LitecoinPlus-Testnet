@@ -48,14 +48,14 @@ namespace Checkpoints
         return checkpoints.rbegin()->first;
     }
 
-    CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex)
+    CBlockIndexV2* GetLastCheckpoint(const std::map<uint256, CBlockIndexV2*>& mapBlockIndex)
     {
         MapCheckpoints& checkpoints = (fTestNet ? mapCheckpointsTestnet : mapCheckpoints);
 
         BOOST_REVERSE_FOREACH(const MapCheckpoints::value_type& i, checkpoints)
         {
             const uint256& hash = i.second;
-            std::map<uint256, CBlockIndex*>::const_iterator t = mapBlockIndex.find(hash);
+            std::map<uint256, CBlockIndexV2*>::const_iterator t = mapBlockIndex.find(hash);
             if (t != mapBlockIndex.end())
                 return t->second;
         }
@@ -71,7 +71,7 @@ namespace Checkpoints
     CCriticalSection cs_hashSyncCheckpoint;
 
     // ppcoin: get last synchronized checkpoint
-    CBlockIndex* GetLastSyncCheckpoint()
+    CBlockIndexV2* GetLastSyncCheckpoint()
     {
         LOCK(cs_hashSyncCheckpoint);
         if (!mapBlockIndex.count(hashSyncCheckpoint))
@@ -89,16 +89,16 @@ namespace Checkpoints
         if (!mapBlockIndex.count(hashCheckpoint))
             return error("ValidateSyncCheckpoint: block index missing for received sync-checkpoint %s", hashCheckpoint.ToString().c_str());
 
-        CBlockIndex* pindexSyncCheckpoint = mapBlockIndex[hashSyncCheckpoint];
-        CBlockIndex* pindexCheckpointRecv = mapBlockIndex[hashCheckpoint];
+        CBlockIndexV2* pindexSyncCheckpoint = mapBlockIndex[hashSyncCheckpoint];
+        CBlockIndexV2* pindexCheckpointRecv = mapBlockIndex[hashCheckpoint];
 
-        if (pindexCheckpointRecv->nHeight <= pindexSyncCheckpoint->nHeight)
+        if (pindexCheckpointRecv->nHeight() <= pindexSyncCheckpoint->nHeight())
         {
             // Received an older checkpoint, trace back from current checkpoint
             // to the same height of the received checkpoint to verify
             // that current checkpoint should be a descendant block
-            CBlockIndex* pindex = pindexSyncCheckpoint;
-            while (pindex->nHeight > pindexCheckpointRecv->nHeight)
+            CBlockIndexV2* pindex = pindexSyncCheckpoint;
+            while (pindex->nHeight() > pindexCheckpointRecv->nHeight())
                 if (!(pindex = pindex->pprev))
                     return error("ValidateSyncCheckpoint: pprev1 null - block index structure failure");
             if (pindex->GetBlockHash() != hashCheckpoint)
@@ -112,8 +112,8 @@ namespace Checkpoints
         // Received checkpoint should be a descendant block of the current
         // checkpoint. Trace back to the same height of current checkpoint
         // to verify.
-        CBlockIndex* pindex = pindexCheckpointRecv;
-        while (pindex->nHeight > pindexSyncCheckpoint->nHeight)
+        CBlockIndexV2* pindex = pindexCheckpointRecv;
+        while (pindex->nHeight() > pindexSyncCheckpoint->nHeight())
             if (!(pindex = pindex->pprev))
                 return error("ValidateSyncCheckpoint: pprev2 null - block index structure failure");
         if (pindex->GetBlockHash() != hashSyncCheckpoint)
@@ -154,7 +154,7 @@ namespace Checkpoints
             }
 
             CTxDB txdb;
-            CBlockIndex* pindexCheckpoint = mapBlockIndex[hashPendingCheckpoint];
+            CBlockIndexV2* pindexCheckpoint = mapBlockIndex[hashPendingCheckpoint];
             if (!pindexCheckpoint->IsInMainChain())
             {
                 CBlock block;
@@ -192,37 +192,37 @@ namespace Checkpoints
         // to defend against 51% attack which rejects other miners block 
 
         // Select the last proof-of-work block
-        const CBlockIndex *pindex = GetLastBlockIndex(pindexBest, false);
+        CBlockIndexV2 *pindex = GetLastBlockIndex(pindexBest, false);
         // Search forward for a block within max span and maturity window
-        while (pindex->pnext && (pindex->GetBlockTime() + CHECKPOINT_MAX_SPAN <= pindexBest->GetBlockTime() || pindex->nHeight + std::min(6, nCoinbaseMaturity - 20) <= pindexBest->nHeight))
+        while (pindex->pnext && (pindex->GetBlockTime() + CHECKPOINT_MAX_SPAN <= pindexBest->GetBlockTime() || pindex->nHeight() + std::min(6, nCoinbaseMaturity - 20) <= pindexBest->nHeight()))
             pindex = pindex->pnext;
         return pindex->GetBlockHash();
     }
 
     // Check against synchronized checkpoint
-    bool CheckSync(const uint256& hashBlock, const CBlockIndex* pindexPrev)
+    bool CheckSync(const uint256& hashBlock, CBlockIndexV2* pindexPrev)
     {
         if (fTestNet) return true; // Testnet has no checkpoints
-        int nHeight = pindexPrev->nHeight + 1;
+        int nHeight = pindexPrev->nHeight() + 1;
 
         LOCK(cs_hashSyncCheckpoint);
         // sync-checkpoint should always be accepted block
         assert(mapBlockIndex.count(hashSyncCheckpoint));
-        const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
+        CBlockIndexV2* pindexSync = mapBlockIndex[hashSyncCheckpoint];
 
-        if (nHeight > pindexSync->nHeight)
+        if (nHeight > pindexSync->nHeight())
         {
             // trace back to same height as sync-checkpoint
-            const CBlockIndex* pindex = pindexPrev;
-            while (pindex->nHeight > pindexSync->nHeight)
+            CBlockIndexV2* pindex = pindexPrev;
+            while (pindex->nHeight() > pindexSync->nHeight())
                 if (!(pindex = pindex->pprev))
                     return error("CheckSync: pprev null - block index structure failure");
-            if (pindex->nHeight < pindexSync->nHeight || pindex->GetBlockHash() != hashSyncCheckpoint)
+            if (pindex->nHeight() < pindexSync->nHeight() || pindex->GetBlockHash() != hashSyncCheckpoint)
                 return false; // only descendant of sync-checkpoint can pass check
         }
-        if (nHeight == pindexSync->nHeight && hashBlock != hashSyncCheckpoint)
+        if (nHeight == pindexSync->nHeight() && hashBlock != hashSyncCheckpoint)
             return false; // same height with sync-checkpoint
-        if (nHeight < pindexSync->nHeight && !mapBlockIndex.count(hashBlock))
+        if (nHeight < pindexSync->nHeight() && !mapBlockIndex.count(hashBlock))
             return false; // lower height than sync-checkpoint
         return true;
     }
@@ -359,8 +359,8 @@ namespace Checkpoints
         LOCK(cs_hashSyncCheckpoint);
         // sync-checkpoint should always be accepted block
         assert(mapBlockIndex.count(hashSyncCheckpoint));
-        const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
-        return (nBestHeight >= pindexSync->nHeight + nCoinbaseMaturity ||
+        CBlockIndexV2* pindexSync = mapBlockIndex[hashSyncCheckpoint];
+        return (nBestHeight >= pindexSync->nHeight() + nCoinbaseMaturity ||
                 pindexSync->GetBlockTime() + nStakeMinAge < GetAdjustedTime());
     }
 
@@ -370,7 +370,7 @@ namespace Checkpoints
         LOCK(cs_hashSyncCheckpoint);
         // sync-checkpoint should always be accepted block
         assert(mapBlockIndex.count(hashSyncCheckpoint));
-        const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
+        CBlockIndexV2* pindexSync = mapBlockIndex[hashSyncCheckpoint];
         return (pindexSync->GetBlockTime() + nSeconds < GetAdjustedTime());
     }
 }
@@ -423,7 +423,7 @@ bool CSyncCheckpoint::ProcessSyncCheckpoint(CNode* pfrom)
         return false;
 
     CTxDB txdb;
-    CBlockIndex* pindexCheckpoint = mapBlockIndex[hashCheckpoint];
+    CBlockIndexV2* pindexCheckpoint = mapBlockIndex[hashCheckpoint];
     if (!pindexCheckpoint->IsInMainChain())
     {
         // checkpoint chain received but not yet main chain

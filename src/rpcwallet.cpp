@@ -42,7 +42,7 @@ void WalletTxToJSON(const CWalletTx& wtx, Object& entry)
     {
         entry.push_back(Pair("blockhash", wtx.hashBlock.GetHex()));
         entry.push_back(Pair("blockindex", wtx.nIndex));
-        entry.push_back(Pair("blocktime", (boost::int64_t)(mapBlockIndex[wtx.hashBlock]->nTime)));
+        entry.push_back(Pair("blocktime", (boost::int64_t)(mapBlockIndex[wtx.hashBlock]->nTime())));
     }
     entry.push_back(Pair("txid", wtx.GetHash().GetHex()));
     entry.push_back(Pair("time", (boost::int64_t)wtx.GetTxTime()));
@@ -77,7 +77,7 @@ Value getinfo(const Array& params, bool fHelp)
     obj.push_back(Pair("newmint",       ValueFromAmount(pwalletMain->GetNewMint())));
     obj.push_back(Pair("stake",         ValueFromAmount(pwalletMain->GetStake())));
     obj.push_back(Pair("blocks",        (int)nBestHeight));
-    obj.push_back(Pair("moneysupply",   ValueFromAmount(pindexBest->nMoneySupply)));
+    obj.push_back(Pair("moneysupply",   ValueFromAmount(pindexBest->nMoneySupply())));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
     obj.push_back(Pair("proxy",         (proxy.first.IsValid() ? proxy.first.ToStringIPPort() : string())));
     obj.push_back(Pair("ip",            addrSeenByPeer.ToStringIP()));
@@ -1172,7 +1172,7 @@ Value listsinceblock(const Array& params, bool fHelp)
             "listsinceblock [blockhash] [target-confirmations]\n"
             "Get all transactions in blocks since block [blockhash], or all transactions if omitted");
 
-    CBlockIndex *pindex = NULL;
+    CBlockIndexV2 *pindex = NULL;
     int target_confirms = 1;
 
     if (params.size() > 0)
@@ -1180,7 +1180,12 @@ Value listsinceblock(const Array& params, bool fHelp)
         uint256 blockId = 0;
 
         blockId.SetHex(params[0].get_str());
-        pindex = CBlockLocator(blockId).GetBlockIndex();
+
+        map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.find(blockId);
+        if (mi != mapBlockIndex.end() && (*mi).second)
+        {
+            pindex = (*mi).second;
+		}
     }
 
     if (params.size() > 1)
@@ -1191,7 +1196,7 @@ Value listsinceblock(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter");
     }
 
-    int depth = pindex ? (1 + nBestHeight - pindex->nHeight) : -1;
+    int depth = pindex ? (1 + nBestHeight - pindex->nHeight()) : -1;
 
     Array transactions;
 
@@ -1211,11 +1216,11 @@ Value listsinceblock(const Array& params, bool fHelp)
     }
     else
     {
-        int target_height = pindexBest->nHeight + 1 - target_confirms;
+        int target_height = pindexBest->nHeight() + 1 - target_confirms;
 
-        CBlockIndex *block;
+        CBlockIndexV2 *block;
         for (block = pindexBest;
-             block && block->nHeight > target_height;
+             block && block->nHeight() > target_height;
              block = block->pprev)  { }
 
         lastblock = block ? block->GetBlockHash() : 0;
@@ -1274,15 +1279,15 @@ Value gettransaction(const Array& params, bool fHelp)
             else
             {
                 entry.push_back(Pair("blockhash", hashBlock.GetHex()));
-                map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+                map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.find(hashBlock);
                 if (mi != mapBlockIndex.end() && (*mi).second)
                 {
-                    CBlockIndex* pindex = (*mi).second;
+                    CBlockIndexV2* pindex = (*mi).second;
                     if (pindex->IsInMainChain())
                     {
-                        entry.push_back(Pair("confirmations", 1 + nBestHeight - pindex->nHeight));
+                        entry.push_back(Pair("confirmations", 1 + nBestHeight - pindex->nHeight()));
                         entry.push_back(Pair("txntime", (boost::int64_t)tx.nTime));
-                        entry.push_back(Pair("time", (boost::int64_t)pindex->nTime));
+                        entry.push_back(Pair("time", (boost::int64_t)pindex->nTime()));
                     }
                     else
                         entry.push_back(Pair("confirmations", 0));
