@@ -14,7 +14,7 @@
 #include <QTimer>
 
 static const int64 nClientStartupTime = GetTime();
-double GetPoSKernelPS(const CBlockIndex* blockindex = NULL);
+double GetPoSKernelPS(CBlockIndexV2* blockindex = NULL);
 extern unsigned int nStakeTargetSpacing;
 
 ClientModel::ClientModel(OptionsModel *optionsModel, QObject *parent) :
@@ -138,10 +138,10 @@ double ClientModel::GetDifficulty() const
 
     if (pindexBest == NULL)
         return 1.0;
-    int nShift = (pindexBest->nBits >> 24) & 0xff;
+    int nShift = (pindexBest->nBits() >> 24) & 0xff;
 
     double dDiff =
-        (double)0x0000ffff / (double)(pindexBest->nBits & 0x00ffffff);
+        (double)0x0000ffff / (double)(pindexBest->nBits() & 0x00ffffff);
 
     while (nShift < 29)
     {
