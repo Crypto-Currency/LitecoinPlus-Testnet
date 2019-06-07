@@ -366,7 +366,7 @@ bool AppInit2()
     SoftSetBoolArg("-listen", true); // just making sure
 
     //fTestNet = GetBoolArg("-testnet");
-	fTestNet = true
+	fTestNet = true;
 
 	extern bool netOffline;
 	netOffline = GetBoolArg("-netoffline", false);
