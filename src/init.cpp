@@ -273,6 +273,7 @@ std::string HelpMessage()
         "  -daemon                " + _("Run in the background as a daemon and accept commands") + "\n" +
 #endif
         "  -testnet               " + _("Use the test network") + "\n" +
+        "  -netoffline            " + _("Starts with the wallet offline (default: starts online)") + "\n" +
         "  -debug                 " + _("Output extra debugging information. Implies all other -debug* options") + "\n" +
         "  -debugnet              " + _("Output extra network debugging information") + "\n" +
         "  -logtimestamps         " + _("Prepend debug output with timestamp") + "\n" +
@@ -365,7 +366,10 @@ bool AppInit2()
     SoftSetBoolArg("-listen", true); // just making sure
 
     //fTestNet = GetBoolArg("-testnet");
-    fTestNet = true;
+	fTestNet = true
+
+	extern bool netOffline;
+	netOffline = GetBoolArg("-netoffline", false);
 
     if (mapArgs.count("-bind")) {
         // when specifying an explicit binding address, you want to listen on it
