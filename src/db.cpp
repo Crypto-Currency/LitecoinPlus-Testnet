@@ -1017,31 +1017,24 @@ bool CBlkDB::LoadBlockIndexGuts()
 				CDiskBlockIndexV3Conv diskindexPrior41;
 
 	// if already flagged for conversion, just read conversion data
-				if (needUpgrade41)
-				{
-					ssValue >> diskindexPrior41;
-				}
-				else
-				{	
-					try {
-				    	ssValue >> diskindex;
-					} catch (std::exception &e) {
+				try {
+			    	ssValue >> diskindex;
+				} catch (std::exception &e) {
 
 	// it may be necessary to convert the data from previous 4.1.0.1 versions, let's try to squeeze the stream like this
-						try {
-							CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
-							ssValue41.SetType(SER_DISK);
-							ssValue41.clear();
-							ssValue41.write((char*)retdata, (int)retdlen);
-							ssValue41 >> diskindexPrior41;
+					try {
+						CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
+						ssValue41.SetType(SER_DISK);
+						ssValue41.clear();
+						ssValue41.write((char*)retdata, (int)retdlen);
+						ssValue41 >> diskindexPrior41;
 
 	// if logic reaches here, then we need to updgrade after the loop
-							needUpgrade41 = true;
-						} catch (std::exception &e) {
+						needUpgrade41 = true;
+					} catch (std::exception &e) {
 
 	// nope, it really is an error, so we need to handle it
-							return false;
-						}
+						return false;
 					}
 				}
 
