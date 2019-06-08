@@ -1757,15 +1757,21 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndexV2* pindex)
     if (pindex->pprev)
     {
 		CDiskBlockIndexV3 *blockindexPrev = pindex->pprev->getDiskAccess(true);
-		blockindexPrev->uncommitted = true;
-		printf("WriteBlockIndexV3::POS1 %s\n", blockindexPrev->ToString().c_str());
-		blockindexPrev->hashNext = 0;
-        if (!txdb.blkDb->WriteBlockIndexV3(blockindexPrev))
+		if (blockindexPrev)
 		{
+			printf("WriteBlockIndexV3::POS1 %s\n", blockindexPrev->ToString().c_str());
+			blockindexPrev->hashNext = 0;
+		    if (!txdb.blkDb->WriteBlockIndexV3(blockindexPrev))
+			{
+				blockindexPrev->uncommitted = false;
+		        return error("DisconnectBlock() : WriteBlockIndex failed");
+			}
 			blockindexPrev->uncommitted = false;
-            return error("DisconnectBlock() : WriteBlockIndex failed");
 		}
-		blockindexPrev->uncommitted = false;
+		else
+		{
+	        return error("ConnectBlock() : Failed to allocate diskindex space");
+		}
     }
 
     // ppcoin: clean up wallet after disconnecting coinstake
@@ -1866,15 +1872,22 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndexV2* pindex, bool fJustCheck)
 
     // ppcoin: track money supply and mint amount info
 	CDiskBlockIndexV3* diskindex = pindex->getDiskAccess(true);
-	diskindex->nMint = nValueOut - nValueIn + nFees;
-    diskindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply() : 0) + nValueOut - nValueIn;
-	printf("WriteBlockIndexV3::POS2 %s\n", diskindex->ToString().c_str());
-    if (!txdb.blkDb->WriteBlockIndexV3(diskindex))
+	if (diskindex)
 	{
+		diskindex->nMint = nValueOut - nValueIn + nFees;
+		diskindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply() : 0) + nValueOut - nValueIn;
+		printf("WriteBlockIndexV3::POS2 %s\n", diskindex->ToString().c_str());
+		if (!txdb.blkDb->WriteBlockIndexV3(diskindex))
+		{
+			diskindex->uncommitted = false;
+		    return error("Connect() : WriteBlockIndex for pindex failed");
+		}	
 		diskindex->uncommitted = false;
-        return error("Connect() : WriteBlockIndex for pindex failed");
-	}	
-	diskindex->uncommitted = false;
+	}
+	else
+	{
+	    return error("Connect() : Failed to allocate diskindex space");
+	}
 
     // ppcoin: fees are not collected by miners as in bitcoin
     // ppcoin: fees are destroyed to compensate the entire network
@@ -1906,14 +1919,21 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndexV2* pindex, bool fJustCheck)
     if (pindex->pprev)
     {
         CDiskBlockIndexV3* blockindexPrev = pindex->pprev->getDiskAccess(true);
-        blockindexPrev->hashNext = pindex->GetBlockHash();
-		printf("WriteBlockIndexV3::POS3 %s\n", blockindexPrev->ToString().c_str());
-        if (!txdb.blkDb->WriteBlockIndexV3(blockindexPrev))
+		if (blockindexPrev)
 		{
+		    blockindexPrev->hashNext = pindex->GetBlockHash();
+			printf("WriteBlockIndexV3::POS3 %s\n", blockindexPrev->ToString().c_str());
+		    if (!txdb.blkDb->WriteBlockIndexV3(blockindexPrev))
+			{
+				blockindexPrev->uncommitted = false;
+		        return error("ConnectBlock() : WriteBlockIndex failed");
+			}
 			blockindexPrev->uncommitted = false;
-            return error("ConnectBlock() : WriteBlockIndex failed");
 		}
-		blockindexPrev->uncommitted = false;
+		else
+		{
+	        return error("ConnectBlock() : Failed to allocate diskindex space");
+		}
     }
 
     // Watch for transactions paying to me
@@ -2277,80 +2297,86 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
         return error("AddToBlockIndex() : %s already exists", hash.ToString().substr(0,20).c_str());
 
     // Construct new block index object
+	int64 nStart = GetTimeMillis();
     CBlockIndexV2* pindexNew = new CBlockIndexV2(&hash, nFile, nBlockPos, *this);
 	CDiskBlockIndexV3* diskindex = pindexNew->getDiskAccess(true);
-
-    if (!pindexNew)
-        return error("AddToBlockIndex() : new CBlockIndex failed");
-    pindexNew->phashBlock = &hash;
-
-    int64 nStart = GetTimeMillis();
-    map<uint256, CBlockIndexV2*>::iterator miPrev = mapBlockIndex.find(hashPrevBlock);
-    if (miPrev != mapBlockIndex.end())
-    {
-        pindexNew->pprev = (*miPrev).second;
-        diskindex->nHeight = pindexNew->pprev->nHeight() + 1;
-    }
-
-    // ppcoin: compute chain trust score
-    diskindex->bnChainTrust = (pindexNew->pprev ? pindexNew->pprev->bnChainTrust() : 0) + pindexNew->GetBlockTrust();
-
-    // ppcoin: compute stake entropy bit for stake modifier
-	if (!pindexNew->SetStakeEntropyBit(GetStakeEntropyBit(pindexNew->nHeight())))
-		return error("AddToBlockIndex() : SetStakeEntropyBit() failed");
-
-    // ppcoin: record proof-of-stake hash value
-    if (pindexNew->IsProofOfStake())
-    {
-        if (!mapProofOfStake.count(hash))
-            return error("AddToBlockIndex() : hashProofOfStake not found in map");
-        diskindex->hashProofOfStake = mapProofOfStake[hash];
-    }
-
-	if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
-		fprintf(stderr, "AddToBlockIndex()/[chk 1] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
-    nStart = GetTimeMillis();
-
-    // ppcoin: compute stake modifier
-    uint64 nStakeModifier = 0;
-    bool fGeneratedStakeModifier = false;
-    if (!ComputeNextStakeModifier(pindexNew->pprev, nStakeModifier, fGeneratedStakeModifier))
-        return error("AddToBlockIndex() : ComputeNextStakeModifier() failed");
-    pindexNew->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
-    diskindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindexNew);
-	if (!CheckStakeModifierCheckpoints(pindexNew->nHeight(), pindexNew->nStakeModifierChecksum()))
-		return error("AddToBlockIndex() : Rejected by stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindexNew->nHeight(), nStakeModifier);
-
-	if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
-		fprintf(stderr, "AddToBlockIndex()/[chk 2] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
-    nStart = GetTimeMillis();
-
-    // Add to mapBlockIndex
-    map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
-    if (pindexNew->IsProofOfStake())
-        setStakeSeen.insert(make_pair(pindexNew->prevoutStake(), pindexNew->nStakeTime()));
-    pindexNew->phashBlock = &((*mi).first);
-
-	// by Simone: use global CTxDB object !
-    // Write to disk block index
-    if (!gtxdb)
+	if (diskindex)
 	{
-		gtxdb = new CTxDB();
+		if (!pindexNew)
+		    return error("AddToBlockIndex() : new CBlockIndex failed");
+		pindexNew->phashBlock = &hash;
+
+		map<uint256, CBlockIndexV2*>::iterator miPrev = mapBlockIndex.find(hashPrevBlock);
+		if (miPrev != mapBlockIndex.end())
+		{
+		    pindexNew->pprev = (*miPrev).second;
+		    diskindex->nHeight = pindexNew->pprev->nHeight() + 1;
+		}
+
+		// ppcoin: compute chain trust score
+		diskindex->bnChainTrust = (pindexNew->pprev ? pindexNew->pprev->bnChainTrust() : 0) + pindexNew->GetBlockTrust();
+
+		// ppcoin: compute stake entropy bit for stake modifier
+		if (!pindexNew->SetStakeEntropyBit(GetStakeEntropyBit(pindexNew->nHeight())))
+			return error("AddToBlockIndex() : SetStakeEntropyBit() failed");
+
+		// ppcoin: record proof-of-stake hash value
+		if (pindexNew->IsProofOfStake())
+		{
+		    if (!mapProofOfStake.count(hash))
+		        return error("AddToBlockIndex() : hashProofOfStake not found in map");
+		    diskindex->hashProofOfStake = mapProofOfStake[hash];
+		}
+
+		if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
+			fprintf(stderr, "AddToBlockIndex()/[chk 1] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		nStart = GetTimeMillis();
+
+		// ppcoin: compute stake modifier
+		uint64 nStakeModifier = 0;
+		bool fGeneratedStakeModifier = false;
+		if (!ComputeNextStakeModifier(pindexNew->pprev, nStakeModifier, fGeneratedStakeModifier))
+		    return error("AddToBlockIndex() : ComputeNextStakeModifier() failed");
+		pindexNew->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
+		diskindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindexNew);
+		if (!CheckStakeModifierCheckpoints(pindexNew->nHeight(), pindexNew->nStakeModifierChecksum()))
+			return error("AddToBlockIndex() : Rejected by stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindexNew->nHeight(), nStakeModifier);
+
+		if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
+			fprintf(stderr, "AddToBlockIndex()/[chk 2] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		nStart = GetTimeMillis();
+
+		// Add to mapBlockIndex
+		map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
+		if (pindexNew->IsProofOfStake())
+		    setStakeSeen.insert(make_pair(pindexNew->prevoutStake(), pindexNew->nStakeTime()));
+		pindexNew->phashBlock = &((*mi).first);
+
+		// by Simone: use global CTxDB object !
+		// Write to disk block index
+		if (!gtxdb)
+		{
+			gtxdb = new CTxDB();
+		}
+		if (!gtxdb->blkDb->TxnBegin())
+			return error("AddToBlockIndex() : TxnBegin() failed");;
+
+		// move calculatd stuff into correct structure before saving
+		diskindex->hashPrev = hashPrevBlock;
+		diskindex->hash = pindexNew->GetBlockHash();
+		diskindex->nFlags = pindexNew->nFlags;
+		diskindex->nStakeModifier = pindexNew->nStakeModifier;
+
+		printf("WriteBlockIndexV3::POS0 %s\n", diskindex->ToString().c_str());
+		gtxdb->blkDb->WriteBlockIndexV3(diskindex);
+		diskindex->uncommitted = false;
+		if (!gtxdb->blkDb->TxnCommit())
+			return error("AddToBlockIndex() : TxnCommit() failed");;
 	}
-	if (!gtxdb->blkDb->TxnBegin())
-		return error("AddToBlockIndex() : TxnBegin() failed");;
-
-	// move calculatd stuff into correct structure before saving
-	diskindex->hashPrev = hashPrevBlock;
-	diskindex->hash = pindexNew->GetBlockHash();
-	diskindex->nFlags = pindexNew->nFlags;
-	diskindex->nStakeModifier = pindexNew->nStakeModifier;
-
-	printf("WriteBlockIndexV3::POS0 %s\n", diskindex->ToString().c_str());
-    gtxdb->blkDb->WriteBlockIndexV3(diskindex);
-	diskindex->uncommitted = false;
-	if (!gtxdb->blkDb->TxnCommit())
-		return error("AddToBlockIndex() : TxnCommit() failed");;
+	else
+	{
+		return error("AddToBlockIndex() : Failed to allocate diskindex space");;
+	}
 
 	if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
 		fprintf(stderr, "AddToBlockIndex()/[chk 3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
@@ -2735,6 +2761,8 @@ CBlockIndexV2::CBlockIndexV2(uint256* hash, unsigned int nFileIn, unsigned int n
     nStakeModifier = 0;
 
 // disk variables, use setters
+	if (!diskaccess)
+		return;
 	diskaccess->nFile = nFileIn;
 	diskaccess->nBlockPos = nBlockPosIn;
     diskaccess->nMint = 0;
@@ -2820,6 +2848,7 @@ CDiskBlockIndexV3* CBlockIndexV2::getPureDiskAccess()
 	return diskaccess;
 }
 
+bool shitHappened = false;
 CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 {
 // protected by own semaphore
@@ -2829,6 +2858,16 @@ CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 	flushDiskAccess();
 	if (diskaccess)
 		return diskaccess;
+
+// check the map for the hash when not creating a new one
+	if (phashBlock)
+	{
+		if ((mapBlockIndex.count(*phashBlock) == 0) && (diskaccess->uncommitted == false))
+		{
+			printf("CBlockIndexV2::getDiskAccess() requested an hash that doesn't exists (%s) \n", (*phashBlock).ToString().c_str());
+			return NULL;
+		}
+	}
 
 // not cached, so we need to read it from the disk
 	diskaccess = new CDiskBlockIndexV3();
@@ -2855,6 +2894,12 @@ CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 	if (!txdb.blkDb->ReadBlockIndexV3(*phashBlock, *diskaccess))
 	{
 		printf("CBlockIndexV2::getDiskAccess() not in DB yet %s \n", (*phashBlock).ToString().c_str());
+
+		pprev = NULL;
+		pnext = NULL;
+
+		printf("%s \n", ToString().c_str());
+		shitHappened = true;
 	}
 	queueMdbi.push(*phashBlock);
 	flushDiskAccess();
@@ -2880,7 +2925,7 @@ void CBlockIndexV2::flushDiskAccess()
 		uint256 thisHash = queueMdbiCp.front();
 		queueMdbiCp.pop();
 		CDiskBlockIndexV3* diskindex = mapBlockIndex[thisHash]->diskaccess;
-		if (diskindex)
+		if ((diskindex) && (phashBlock))
 		{
 // if this is self, skip
 			if (thisHash == *phashBlock)
@@ -2899,8 +2944,15 @@ void CBlockIndexV2::flushDiskAccess()
 			//CCacheDB cachedb("cr+");
 			//cachedb.WriteCacheIndexV3(diskaccess);
 			//cachedb.Close();
-			delete diskindex;
-			mapBlockIndex[thisHash]->diskaccess = NULL;
+			if (mapBlockIndex.count(*phashBlock) == 0)
+			{
+				printf("CBlockIndexV2::flushDiskAccess() attempted to flush an hash that is not in the map (%s) \n", (*phashBlock).ToString().c_str());
+			}
+			else
+			{
+				delete diskindex;
+				mapBlockIndex[thisHash]->diskaccess = NULL;
+			}
 		}
 		queueMdbi.pop();
 	}
@@ -2918,90 +2970,182 @@ void CBlockIndexV2::flushDiskAccess()
 unsigned int CBlockIndexV2::nFile()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nFile\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nFile;
 }
 
 unsigned int CBlockIndexV2::nBlockPos()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nBlockPos\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nBlockPos;
 }
 
 int CBlockIndexV2::nHeight()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nHeight\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nHeight;
 }
 
 int64 CBlockIndexV2::nMint()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nMint\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nMint;
 }
 
 int64 CBlockIndexV2::nMoneySupply()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nMoneySupply\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nMoneySupply;
 }
 
 COutPoint CBlockIndexV2::prevoutStake()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	COutPoint val;
+	val.SetNull();
+	if (!diskindex)
+		return val;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s prevoutStake\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->prevoutStake;
 }
 
 unsigned int CBlockIndexV2::nStakeTime()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nStakeTime\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nStakeTime;
 }
 
 uint256 CBlockIndexV2::hashProofOfStake()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s hashProofOfStake\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->hashProofOfStake;
 }
 
 int CBlockIndexV2::nVersion()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nVersion\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nVersion;
 }
 
 uint256 CBlockIndexV2::hashMerkleRoot()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s hashMerkleRoot\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->hashMerkleRoot;
 }
 
 unsigned int CBlockIndexV2::nTime()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nTime\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nTime;
 }
 
 unsigned int CBlockIndexV2::nBits()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nBits\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nBits;
 }
 
 unsigned int CBlockIndexV2::nNonce()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nNonce\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nNonce;
 }
 
 unsigned int CBlockIndexV2::nStakeModifierChecksum()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s nStakeModifierChecksum\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->nStakeModifierChecksum;
 }
 
 CBigNum CBlockIndexV2::bnChainTrust()
 {
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
+	if (!diskindex)
+		return 0;
+
+	if (shitHappened)
+		printf("SHIT HAPPENED %s bnChainTrust\n", (*phashBlock).ToString().c_str());
+
 	return diskindex->bnChainTrust;
 }
 
@@ -4399,9 +4543,15 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 	    CInv inv(MSG_BLOCK, block.GetHash());
 	    pfrom->AddInventoryKnown(inv);
 
-	    if (ProcessBlock(pfrom, &block))
-	        mapAlreadyAskedFor.erase(inv);
-	    if (block.nDoS) Misbehaving(pfrom->GetId(), block.nDoS);
+		try {
+			if (ProcessBlock(pfrom, &block))
+			    mapAlreadyAskedFor.erase(inv);
+			if (block.nDoS) Misbehaving(pfrom->GetId(), block.nDoS);
+		} catch (std::exception& e) {
+            PrintException(&e, "ProcessMessages()");
+        } catch (...) {
+            PrintException(NULL, "ProcessMessages()");
+        }
     }
 
 
@@ -5424,6 +5574,8 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
             LOCK(wallet.cs_wallet);
             wallet.mapRequestCount[pblock->GetHash()] = 0;
         }
+
+		//netOffline = true;
 
         // Process this block the same as if we had received it from another node
         if (!ProcessBlock(NULL, pblock))
