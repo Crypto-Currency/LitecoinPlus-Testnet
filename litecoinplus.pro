@@ -5,6 +5,7 @@ INCLUDEPATH += src src/json src/qt /usr/include/libdb4
 DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE BOOST_ASIO_ENABLE_OLD_SERVICES
 CONFIG += no_include_pwd
 CONFIG += thread
+QT += widgets
 QT += network
 
 # for boost 1.37, add -mt to the boost libraries
@@ -35,7 +36,7 @@ contains(RELEASE, 1) {
 !win32 {
 # for extra security against potential buffer overflows: enable GCCs Stack Smashing Protection
 QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
-QMAKE_LFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
+QMAKE_LFLAGS *= -rdynamic -fstack-protector-all --param ssp-buffer-size=1
 # We need to exclude this for Windows cross compile with MinGW 4.2.x, as it will result in a non-working executable!
 # This can be enabled for Windows, when we switch to MinGW >= 4.4.x.
 }
