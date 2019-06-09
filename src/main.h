@@ -1757,7 +1757,7 @@ public:
 		bnChainTrust = 0;
     }
 
-    explicit CDiskBlockIndexV3(CBlockIndexV2* pindex) : CBlockIndexV2(*pindex)
+    CDiskBlockIndexV3(CBlockIndexV2* pindex)
     {
 	// set basic hashes
 		forConversion = false;
