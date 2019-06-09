@@ -2895,9 +2895,6 @@ CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 	{
 		printf("CBlockIndexV2::getDiskAccess() not in DB yet %s \n", (*phashBlock).ToString().c_str());
 
-		pprev = NULL;
-		pnext = NULL;
-
 		printf("%s \n", ToString().c_str());
 		shitHappened = true;
 	}
