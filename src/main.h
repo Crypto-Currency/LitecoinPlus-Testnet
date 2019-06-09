@@ -130,7 +130,7 @@ unsigned int GetStakeMaxAge(unsigned int nTime);
 unsigned int ComputeMinWork(unsigned int nBase, int64 nTime);
 unsigned int ComputeMinStake(unsigned int nBase, int64 nTime, unsigned int nBlockTime);
 int GetNumBlocksOfPeers();
-bool IsInitialBlockDownload();
+bool IsInitialBlockDownload(bool forMiningThread = false);
 std::string GetWarnings(std::string strFor);
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock);
 uint256 WantedByOrphan(const CBlock* pblockOrphan);
@@ -1401,10 +1401,12 @@ public:
 
 	CDiskBlockIndexV3* getDiskAccess(bool uncommitted = false);
 	CDiskBlockIndexV3* getPureDiskAccess();
+	void releaseDiskAccess();
 
     CBlock GetBlockHeader()
     {
         CBlock block;
+		getDiskAccess(true);
         block.nVersion       = nVersion();
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
@@ -1412,6 +1414,7 @@ public:
         block.nTime          = nTime();
         block.nBits          = nBits();
         block.nNonce         = nNonce();
+		releaseDiskAccess();
         return block;
     }
 

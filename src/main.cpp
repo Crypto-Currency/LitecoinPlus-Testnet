@@ -1382,13 +1382,13 @@ void NetResumed()
 	ibdLatched = false;
 }
 
-bool IsInitialBlockDownload()
+bool IsInitialBlockDownload(bool forMiningThread)
 {
 	if (ibdLatched)
 		return false;
 	
 	// only for testnet
-	if (fTestNet && nBestHeight == 0) {
+	if (fTestNet && (nBestHeight == 0) && !forMiningThread) {
 		return false;
 	}
 	int minTolerated;
@@ -2761,8 +2761,6 @@ CBlockIndexV2::CBlockIndexV2(uint256* hash, unsigned int nFileIn, unsigned int n
     nStakeModifier = 0;
 
 // disk variables, use setters
-	if (!diskaccess)
-		return;
 	diskaccess->nFile = nFileIn;
 	diskaccess->nBlockPos = nBlockPosIn;
     diskaccess->nMint = 0;
@@ -2848,6 +2846,15 @@ CDiskBlockIndexV3* CBlockIndexV2::getPureDiskAccess()
 	return diskaccess;
 }
 
+void CBlockIndexV2::releaseDiskAccess()
+{
+// protected by own semaphore
+    LOCK(cs_mdbi);
+
+	if (diskaccess)
+		diskaccess->uncommitted = false;
+}
+
 bool shitHappened = false;
 CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 {
@@ -2858,16 +2865,6 @@ CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 	flushDiskAccess();
 	if (diskaccess)
 		return diskaccess;
-
-// check the map for the hash when not creating a new one
-	if (phashBlock)
-	{
-		if ((mapBlockIndex.count(*phashBlock) == 0) && (diskaccess->uncommitted == false))
-		{
-			printf("CBlockIndexV2::getDiskAccess() requested an hash that doesn't exists (%s) \n", (*phashBlock).ToString().c_str());
-			return NULL;
-		}
-	}
 
 // not cached, so we need to read it from the disk
 	diskaccess = new CDiskBlockIndexV3();
@@ -2894,7 +2891,14 @@ CDiskBlockIndexV3* CBlockIndexV2::getDiskAccess(bool uncommitted)
 	if (!txdb.blkDb->ReadBlockIndexV3(*phashBlock, *diskaccess))
 	{
 		printf("CBlockIndexV2::getDiskAccess() not in DB yet %s \n", (*phashBlock).ToString().c_str());
-
+		if (!uncommitted)
+		{
+			printf("JUST EXITING\n");
+			txdb.Close();
+			delete diskaccess;
+			diskaccess = NULL;
+			return NULL;
+		}
 		printf("%s \n", ToString().c_str());
 		shitHappened = true;
 	}
@@ -2921,14 +2925,11 @@ void CBlockIndexV2::flushDiskAccess()
 	{
 		uint256 thisHash = queueMdbiCp.front();
 		queueMdbiCp.pop();
-		CDiskBlockIndexV3* diskindex = mapBlockIndex[thisHash]->diskaccess;
-		if ((diskindex) && (phashBlock))
+		CDiskBlockIndexV3* diskindex = NULL;
+		if (mapBlockIndex.count(thisHash))
+			diskindex = mapBlockIndex[thisHash]->diskaccess;
+		if (diskindex)
 		{
-// if this is self, skip
-			if (thisHash == *phashBlock)
-			{
-				continue;		// if delete self, we have big problems
-			}
 
 // if this is uncommitted, skip
 			if (diskindex->uncommitted)
@@ -2941,15 +2942,8 @@ void CBlockIndexV2::flushDiskAccess()
 			//CCacheDB cachedb("cr+");
 			//cachedb.WriteCacheIndexV3(diskaccess);
 			//cachedb.Close();
-			if (mapBlockIndex.count(*phashBlock) == 0)
-			{
-				printf("CBlockIndexV2::flushDiskAccess() attempted to flush an hash that is not in the map (%s) \n", (*phashBlock).ToString().c_str());
-			}
-			else
-			{
-				delete diskindex;
-				mapBlockIndex[thisHash]->diskaccess = NULL;
-			}
+			delete diskindex;
+			mapBlockIndex[thisHash]->diskaccess = NULL;
 		}
 		queueMdbi.pop();
 	}
@@ -2969,10 +2963,6 @@ unsigned int CBlockIndexV2::nFile()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nFile\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nFile;
 }
 
@@ -2981,10 +2971,6 @@ unsigned int CBlockIndexV2::nBlockPos()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nBlockPos\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nBlockPos;
 }
 
@@ -2993,10 +2979,6 @@ int CBlockIndexV2::nHeight()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nHeight\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nHeight;
 }
 
@@ -3005,10 +2987,6 @@ int64 CBlockIndexV2::nMint()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nMint\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nMint;
 }
 
@@ -3017,10 +2995,6 @@ int64 CBlockIndexV2::nMoneySupply()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nMoneySupply\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nMoneySupply;
 }
 
@@ -3031,10 +3005,6 @@ COutPoint CBlockIndexV2::prevoutStake()
 	val.SetNull();
 	if (!diskindex)
 		return val;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s prevoutStake\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->prevoutStake;
 }
 
@@ -3043,10 +3013,6 @@ unsigned int CBlockIndexV2::nStakeTime()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nStakeTime\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nStakeTime;
 }
 
@@ -3055,10 +3021,6 @@ uint256 CBlockIndexV2::hashProofOfStake()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s hashProofOfStake\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->hashProofOfStake;
 }
 
@@ -3067,10 +3029,6 @@ int CBlockIndexV2::nVersion()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nVersion\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nVersion;
 }
 
@@ -3079,10 +3037,6 @@ uint256 CBlockIndexV2::hashMerkleRoot()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s hashMerkleRoot\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->hashMerkleRoot;
 }
 
@@ -3091,10 +3045,6 @@ unsigned int CBlockIndexV2::nTime()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nTime\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nTime;
 }
 
@@ -3103,10 +3053,6 @@ unsigned int CBlockIndexV2::nBits()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nBits\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nBits;
 }
 
@@ -3115,10 +3061,6 @@ unsigned int CBlockIndexV2::nNonce()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nNonce\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nNonce;
 }
 
@@ -3127,10 +3069,6 @@ unsigned int CBlockIndexV2::nStakeModifierChecksum()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s nStakeModifierChecksum\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->nStakeModifierChecksum;
 }
 
@@ -3139,10 +3077,6 @@ CBigNum CBlockIndexV2::bnChainTrust()
 	CDiskBlockIndexV3* diskindex = getDiskAccess();
 	if (!diskindex)
 		return 0;
-
-	if (shitHappened)
-		printf("SHIT HAPPENED %s bnChainTrust\n", (*phashBlock).ToString().c_str());
-
 	return diskindex->bnChainTrust;
 }
 
@@ -5606,7 +5540,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
     {
         if (fShutdown)
             return;
-        while (vNodes.empty() || IsInitialBlockDownload())
+        while (vNodes.empty() || IsInitialBlockDownload(true))
         {
             Sleep(1000);
             if (fShutdown)
