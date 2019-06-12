@@ -344,7 +344,7 @@ void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
 #elif defined(__x86_64__) // gcc specific
  caller_address = (void *) uc->uc_mcontext.rip; // RIP: x86_64 specific
 #else
-#error Unsupported architecture. // TODO: Add support for other arch.
+ caller_address = NULL;
 #endif
 
  fprintf(stderr, "signal %d (%s), address is %p from %p\n", 
