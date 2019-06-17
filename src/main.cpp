@@ -2917,44 +2917,32 @@ void CBlockIndexV2::flushDiskAccess()
 // normal cache size
 	#define BASE_LIMIT 150
 	static unsigned int lim = BASE_LIMIT;
+	static unsigned int checkEvery = 0;
 
 // when count exceed quota, oldest (earliest) is deleted
-	unsigned int uncCount = 0;
-	std::queue<uint256>queueMdbiCp = queueMdbi;
-	while (queueMdbi.size() > lim)
+	if (checkEvery % (BASE_LIMIT * 5) == 0)
 	{
-		uint256 thisHash = queueMdbiCp.front();
-		queueMdbiCp.pop();
-		CDiskBlockIndexV3* diskindex = NULL;
-		if (mapBlockIndex.count(thisHash))
-			diskindex = mapBlockIndex[thisHash]->diskaccess;
-		if (diskindex)
+		checkEvery = 0;
+		while (queueMdbi.size() > lim)
 		{
+			uint256 thisHash = queueMdbi.front();
+			CDiskBlockIndexV3* diskindex = NULL;
+			if (mapBlockIndex.count(thisHash))
+				diskindex = mapBlockIndex[thisHash]->diskaccess;
+			if (diskindex)
+			{
 
 // if this is uncommitted, skip
-			if (diskindex->uncommitted)
-			{
-				uncCount++;
-				continue;		// if delete uncommitted, we have big problems
+				if (!diskindex->uncommitted)
+				{
+					delete diskindex;
+					mapBlockIndex[thisHash]->diskaccess = NULL;
+				}
 			}
-
-// remove item here after having saved in cache
-			//CCacheDB cachedb("cr+");
-			//cachedb.WriteCacheIndexV3(diskaccess);
-			//cachedb.Close();
-			delete diskindex;
-			mapBlockIndex[thisHash]->diskaccess = NULL;
+			queueMdbi.pop();
 		}
-		queueMdbi.pop();
 	}
-
-	if (uncCount > 0)
-	{
-		printf("WARNING: uncommitted count is greater than zero, should not be (%d) \n", uncCount);
-	}
-
-// set new limit here
-	lim = BASE_LIMIT + uncCount;
+	checkEvery++;
 }
 
 // all variables getters below
