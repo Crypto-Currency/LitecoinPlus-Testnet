@@ -85,11 +85,8 @@ public:
         DbTxn* ptxn = NULL;
         int ret = dbenv.txn_begin(NULL, &ptxn, flags);
         if (!ptxn || ret != 0)
-		{
-			printf("THE TXN ERR VAL %p %d\n", ptxn, ret);
             return NULL;
-        }
-		return ptxn;
+        return ptxn;
     }
 };
 
@@ -120,9 +117,7 @@ protected:
     bool Read(const K& key, T& value)
     {
         if (!pdb)
-		{
             return false;
-		}
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -139,9 +134,7 @@ protected:
 			fprintf(stderr, "CDB::Read() lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
         memset(datKey.get_data(), 0, datKey.get_size());
         if (datValue.get_data() == NULL)
-		{
             return false;
-		}
 
         // Unserialize value
         try {
@@ -249,7 +242,44 @@ protected:
         return pcursor;
     }
 
-    int ReadAtCursor(Dbc* pcursor, CDataStream& ssKey, CDataStream& ssValue, unsigned int fFlags=DB_NEXT);
+    int ReadAtCursor(Dbc* pcursor, CDataStream& ssKey, CDataStream& ssValue, unsigned int fFlags=DB_NEXT)
+    {
+        // Read at cursor
+        Dbt datKey;
+        if (fFlags == DB_SET || fFlags == DB_SET_RANGE || fFlags == DB_GET_BOTH || fFlags == DB_GET_BOTH_RANGE)
+        {
+            datKey.set_data(&ssKey[0]);
+            datKey.set_size(ssKey.size());
+        }
+        Dbt datValue;
+        if (fFlags == DB_GET_BOTH || fFlags == DB_GET_BOTH_RANGE)
+        {
+            datValue.set_data(&ssValue[0]);
+            datValue.set_size(ssValue.size());
+        }
+        datKey.set_flags(DB_DBT_MALLOC);
+        datValue.set_flags(DB_DBT_MALLOC);
+        int ret = pcursor->get(&datKey, &datValue, fFlags);
+        if (ret != 0)
+            return ret;
+        else if (datKey.get_data() == NULL || datValue.get_data() == NULL)
+            return 99999;
+
+        // Convert to streams
+        ssKey.SetType(SER_DISK);
+        ssKey.clear();
+        ssKey.write((char*)datKey.get_data(), datKey.get_size());
+        ssValue.SetType(SER_DISK);
+        ssValue.clear();
+        ssValue.write((char*)datValue.get_data(), datValue.get_size());
+
+        // Clear and free memory
+        memset(datKey.get_data(), 0, datKey.get_size());
+        memset(datValue.get_data(), 0, datValue.get_size());
+        free(datKey.get_data());
+        free(datValue.get_data());
+        return 0;
+    }
 
 public:
     bool TxnBegin()
@@ -298,16 +328,6 @@ public:
 
 
 
-/** By Simone: cache index for operation (cache.dat) */
-class CCacheDB : public CDB
-{
-public:
-    CCacheDB(const char* pszMode="r+") : CDB("cache.dat", pszMode) { }
-public:
-    bool WriteCacheIndexV3(CDiskBlockIndexV3* blockindex);
-	bool ReadCacheIndexV3(uint256 hash, CDiskBlockIndexV3& blockindex);
-};
-
 
 /** By Simone: separate block index file for blockchain index !!!!!!!!!!!! (blkindex.dat) */
 class CBlkDB : public CDB
@@ -318,16 +338,15 @@ public:
 public:
     bool WriteBlockIndex(const CDiskBlockIndex& blockindex, uint256 blockHash = 0);
     bool WriteBlockIndexV2(const CDiskBlockIndexV2& blockindex);
-    bool WriteBlockIndexV3(CDiskBlockIndexV3* blockindex);
-	bool ReadBlockIndexV2(uint256 hash, CDiskBlockIndexV2& blockindex);
-	bool ReadBlockIndexV3(uint256 hash, CDiskBlockIndexV3& blockindex);
+    bool WriteBlockIndexV3(const CDiskBlockIndexV3& blockindex);
+	bool ReadBlockIndex(uint256 hash, CDiskBlockIndex& blockindex);
 	bool EraseBlockIndex(uint256 hash);
     bool LoadBlockIndex();
     void DestroyCachedIndex();
 private:
     u_int32_t GetCount();
     bool LoadBlockIndexGuts();
-	bool convertTo41Index();
+	bool convertToV3Index();
 };
 
 

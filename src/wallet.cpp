@@ -423,7 +423,8 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
                             }
                         }
                     }
-                    unsigned int blocktime = mapBlockIndex[wtxIn.hashBlock]->nTime();
+
+                    unsigned int& blocktime = mapBlockIndex[wtxIn.hashBlock]->nTime;
                     wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
                 }
                 else
@@ -787,11 +788,11 @@ bool CWalletTx::WriteToDisk()
 // Scan the block chain (starting in pindexStart) for transactions
 // from or to us. If fUpdate is true, found transactions that already
 // exist in the wallet will be updated.
-int CWallet::ScanForWalletTransactions(CBlockIndexV2* pindexStart, bool fUpdate, int numBlocks)
+int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate, int numBlocks)
 {
     int ret = 0;
 
-    CBlockIndexV2* pindex = pindexStart;
+    CBlockIndex* pindex = pindexStart;
     {
         LOCK(cs_wallet);
 		int ccc = 0;
@@ -1460,10 +1461,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     // The following split & combine thresholds are important to security
     // Should not be adjusted if you don't understand the consequences
     static unsigned int nStakeSplitAge = (60 * 60 * 24 * 30);
-	CBlockIndexV2* pIndex0 = GetLastBlockIndex(pindexBest, false);
+	const CBlockIndex* pIndex0 = GetLastBlockIndex(pindexBest, false);
     int64 nCombineThreshold = 0;
 	if(pIndex0->pprev)
-		nCombineThreshold = GetProofOfWorkReward(pIndex0->nHeight(), MIN_TX_FEE, pIndex0->pprev->GetBlockHash()) / 3;
+		nCombineThreshold = GetProofOfWorkReward(pIndex0->nHeight, MIN_TX_FEE, pIndex0->pprev->GetBlockHash()) / 3;
 
     CBigNum bnTargetPerCoinDay;
     bnTargetPerCoinDay.SetCompact(nBits);
@@ -1620,11 +1621,11 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     {
         uint64 nCoinAge;
         CTxDB txdb("r");
-		CBlockIndexV2* pIndex0 = GetLastBlockIndex(pindexBest, false);
+		const CBlockIndex* pIndex0 = GetLastBlockIndex(pindexBest, false);
 
         if (!txNew.GetCoinAge(txdb, nCoinAge))
             return error("CreateCoinStake : failed to calculate coin age");
-        nCredit += GetProofOfStakeReward(nCoinAge, nBits, txNew.nTime, pIndex0->nHeight());
+        nCredit += GetProofOfStakeReward(nCoinAge, nBits, txNew.nTime, pIndex0->nHeight);
     }
 
     int64 nMinFee = 0;

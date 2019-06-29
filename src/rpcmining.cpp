@@ -90,13 +90,13 @@ Value GetNetworkHashPS(int lookup) {
 
     // If lookup is -1, then use blocks since last difficulty change.
     if (lookup <= 0)
-        lookup = pindexBest->nHeight() % 2016 + 1;
+        lookup = pindexBest->nHeight % 2016 + 1;
 
     // If lookup is larger than chain, then set it to chain length.
-    if (lookup > pindexBest->nHeight())
-        lookup = pindexBest->nHeight();
+    if (lookup > pindexBest->nHeight)
+        lookup = pindexBest->nHeight;
 
-    CBlockIndexV2* pindexPrev = pindexBest;
+    CBlockIndex* pindexPrev = pindexBest;
     for (int i = 0; i < lookup; i++)
         pindexPrev = pindexPrev->pprev;
 
@@ -141,7 +141,7 @@ Value getworkex(const Array& params, bool fHelp)
     {
         // Update block
         static unsigned int nTransactionsUpdatedLast;
-        static CBlockIndexV2* pindexPrev;
+        static CBlockIndex* pindexPrev;
         static int64 nStart;
         static CBlock* pblock;
         if (pindexPrev != pindexBest ||
@@ -275,7 +275,7 @@ Value getwork(const Array& params, bool fHelp)
     {
         // Update block
         static unsigned int nTransactionsUpdatedLast;
-        static CBlockIndexV2* pindexPrev;
+        static CBlockIndex* pindexPrev;
         static int64 nStart;
         static CBlock* pblock;
         if (pindexPrev != pindexBest ||
@@ -295,7 +295,7 @@ Value getwork(const Array& params, bool fHelp)
 
             // Store the pindexBest used before CreateNewBlock, to avoid races
             nTransactionsUpdatedLast = nTransactionsUpdated;
-            CBlockIndexV2* pindexPrevNew = pindexBest;
+            CBlockIndex* pindexPrevNew = pindexBest;
             nStart = GetTime();
 
             // Create new block
@@ -414,7 +414,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
 
     // Update block
     static unsigned int nTransactionsUpdatedLast;
-    static CBlockIndexV2* pindexPrev;
+    static CBlockIndex* pindexPrev;
     static int64 nStart;
     static CBlock* pblock;
     if (pindexPrev != pindexBest ||
@@ -425,7 +425,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
 
         // Store the pindexBest used before CreateNewBlock, to avoid races
         nTransactionsUpdatedLast = nTransactionsUpdated;
-        CBlockIndexV2* pindexPrevNew = pindexBest;
+        CBlockIndex* pindexPrevNew = pindexBest;
         nStart = GetTime();
 
         // Create new block
@@ -516,7 +516,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
     result.push_back(Pair("sizelimit", (int64_t)MAX_BLOCK_SIZE));
     result.push_back(Pair("curtime", (int64_t)pblock->nTime));
     result.push_back(Pair("bits", HexBits(pblock->nBits)));
-    result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight()+1)));
+    result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight+1)));
 
     return result;
 }

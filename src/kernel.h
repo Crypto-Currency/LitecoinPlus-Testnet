@@ -15,7 +15,7 @@ extern unsigned int nModifierInterval;
 static const int MODIFIER_INTERVAL_RATIO = 3;
 
 // Compute the hash modifier for proof-of-stake
-bool ComputeNextStakeModifier(CBlockIndexV2* pindexPrev, uint64& nStakeModifier, bool& fGeneratedStakeModifier);
+bool ComputeNextStakeModifier(const CBlockIndex* pindexPrev, uint64& nStakeModifier, bool& fGeneratedStakeModifier);
 
 // Check whether stake kernel meets hash target
 // Sets hashProofOfStake on success return
@@ -29,7 +29,7 @@ bool CheckProofOfStake(const CTransaction& tx, unsigned int nBits, uint256& hash
 bool CheckCoinStakeTimestamp(int64 nTimeBlock, int64 nTimeTx);
 
 // Get stake modifier checksum
-unsigned int GetStakeModifierChecksum(CBlockIndexV2* pindex);
+unsigned int GetStakeModifierChecksum(const CBlockIndex* pindex);
 
 // Check stake modifier hard checkpoints
 bool CheckStakeModifierCheckpoints(int nHeight, unsigned int nStakeModifierChecksum);

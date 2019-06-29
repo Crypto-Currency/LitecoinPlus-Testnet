@@ -23,7 +23,7 @@
 
 class CRequestTracker;
 class CNode;
-class CBlockIndexV2;
+class CBlockIndex;
 extern int nBestHeight;
 
 extern bool fRelayTxes;
@@ -339,7 +339,7 @@ public:
     std::map<uint256, CRequestTracker> mapRequests;
     CCriticalSection cs_mapRequests;
     uint256 hashContinue;
-    CBlockIndexV2* pindexLastGetBlocksBegin;
+    CBlockIndex* pindexLastGetBlocksBegin;
     uint256 hashLastGetBlocksEnd;
     int nStartingHeight;
 
@@ -426,15 +426,43 @@ public:
 
     void AddInventoryKnown(const CInv& inv)
     {
-        LOCK(cs_inventory);
-		setInventoryKnown.insert(inv);
+		loop
+		{
+		    {
+		        TRY_LOCK(cs_inventory, lockInv);
+				if (lockInv)
+				{
+		        	setInventoryKnown.insert(inv);
+					break;
+				}
+				else
+				{
+					Sleep(20);
+					continue;
+				}
+		    }
+		}
     }
 
     void PushInventory(const CInv& inv)
     {
-        LOCK(cs_inventory);
-		if (!setInventoryKnown.count(inv))
-			vInventoryToSend.push_back(inv);
+		loop
+		{
+		    {
+		        TRY_LOCK(cs_inventory, lockInv);
+				if (lockInv)
+				{
+					if (!setInventoryKnown.count(inv))
+						vInventoryToSend.push_back(inv);
+					break;
+				}
+				else
+				{
+					Sleep(20);
+					continue;
+				}
+		    }
+		}
     }
 
     void AskFor(const CInv& inv)
@@ -738,7 +766,7 @@ public:
 
 
 
-    void PushGetBlocks(CBlockIndexV2* pindexBegin, uint256 hashEnd);
+    void PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd);
     bool IsSubscribed(unsigned int nChannel);
     void Subscribe(unsigned int nChannel, unsigned int nHops=0);
     void CancelSubscribe(unsigned int nChannel);
@@ -796,10 +824,22 @@ public:
 inline void RelayInventory(const CInv& inv)
 {
     // Put on lists to offer to the other nodes
-
-    LOCK(cs_vNodes);
-	BOOST_FOREACH(CNode* pnode, vNodes)
-	    pnode->PushInventory(inv);
+	loop
+	{
+		{
+		    TRY_LOCK(cs_vNodes, lockNodes);
+			if (lockNodes)
+			{
+				BOOST_FOREACH(CNode* pnode, vNodes)
+				    pnode->PushInventory(inv);
+				break;
+			}
+			else
+			{
+				Sleep(20);
+			}
+		}
+	}
 }
 
 template<typename T>

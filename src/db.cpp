@@ -22,8 +22,6 @@ using namespace std;
 using namespace boost;
 
 extern CClientUIInterface uiInterface;
-extern bool txIndexFileExists;
-extern bool duringConversion;
 
 unsigned int nWalletDBUpdated;
 
@@ -70,26 +68,107 @@ public:
     )
 };
 
+// by Simone: startup boost system (see LoadBlockIndexGuts() below)
+struct BoostBlockIndex {
+	uint256 hash;
+	uint256 hashPrev;
+	uint256 hashNext;
+	unsigned int nFile;
+	unsigned int nBlockPos;
+	int nHeight;
+	int64 nMint;
+	int64 nMoneySupply;
+	unsigned int nFlags;
+	uint64 nStakeModifier;
+	COutPoint prevoutStake;
+	unsigned int nStakeTime;
+	uint256 hashProofOfStake;
+	int nVersion;
+    uint256 hashMerkleRoot;
+	unsigned int nTime;
+	unsigned int nBits;
+	unsigned int nNonce;
+};
 
-// by Simone: startup boost class gone, just use the destroy function from now
+// by Simone: startup boost v2 system (see LoadBlockIndexGuts() below)
+struct BoostBlockIndexV2 {
+	uint256 hash;
+	uint256 hashPrev;
+	uint256 hashNext;
+};
+
+class blockIndexList
+{
+protected:
+public:
+	blockIndexList() {
+		nFile = 0;
+		nBlockPos = 0;
+	}
+	BoostBlockIndex block;
+	unsigned int nFile;
+	unsigned int nBlockPos;
+};
+
 class boostStartup
 {
+protected:
+	unsigned int curFile;
+	char fName[32];
+	FILE *file;
+
+	// reads the file next in line
+	void readNextFile()
+	{
+		// close previous file
+		if (file)
+		{
+			fclose(file);
+			file = NULL;
+		}
+
+		// open the next one
+		curFile++;
+		sprintf(fName, "bindex%04d.dat", curFile);
+		boost::filesystem::path path = GetDataDir() / fName;
+		file = fopen(path.string().c_str(), "rb");
+		if (file) {
+			isBoosted = true;
+		} else {
+			isBoosted = false;
+			file = NULL;
+		}
+	}
+
 public:
+	map<unsigned int, BoostBlockIndex> blocks[8];
+	bool isBoosted;
+	bool lastSearchSuccess;
+	double recordCount;
+	blockIndexList lBlock;
+
 	// constructor
 	boostStartup()
 	{
+		lastSearchSuccess = false;
+		isBoosted = false;
+		recordCount = 0;
+		curFile = 0;
+		file = NULL;
 	}
 
 	// destructor
 	~boostStartup()
 	{
+		for (int i = 0; i < 8; i++)
+		{
+			this->blocks[i].clear();
+		}
 	}
 
 	// deletes all stored boost files on disk
 	void destroy()
 	{
-		char fName[64];
-
 		for (int i = 0; i < 8; i++)
 		{
 			sprintf(fName, "bindex%04d.dat", i);
@@ -100,7 +179,168 @@ public:
 			}
 		}
 	}
+
+	// commence the boost loading for fast loop
+	void startLoop()
+	{
+		readNextFile();
+	}
+
+	// get total record count
+	void GetBlockIndexCount()
+	{
+		double fSize = 0;
+
+		readNextFile();
+		while (isBoosted) {
+			if (file)
+			{
+				fSize += GetFilesize(file);
+			}
+			readNextFile();
+		}
+		recordCount = fSize / sizeof(BoostBlockIndex);
+		curFile = 0;
+	}
+
+	// get next block
+	BoostBlockIndex* GetNextBlockIndex()
+	{
+		if (file)
+		{
+			bool r = true;
+			if (feof(file))
+			{
+				readNextFile();
+				if (!isBoosted)
+				{
+					return NULL;
+				}
+			}
+			r &= fread(reinterpret_cast<char*>(&lBlock.block), 1, sizeof(lBlock.block), file);
+			r &= fread(reinterpret_cast<char*>(&lBlock.nBlockPos), 1, sizeof(lBlock.nBlockPos), file);
+			return &lBlock.block;
+		}
+		return NULL;
+	}
+
+	// get a precise block by position
+	BoostBlockIndex *GetBlockIndex(unsigned int nFile, unsigned int nBlockPos)
+	{
+		if (nFile < 1)
+		{
+			this->lastSearchSuccess = false;
+			return(NULL);
+		}
+	    map<unsigned int, BoostBlockIndex>::iterator mi = this->blocks[nFile - 1].find(nBlockPos);
+		if (mi != this->blocks[nFile - 1].end()) {
+			this->lastSearchSuccess = true;
+        	return &((*mi).second);
+		}
+		this->lastSearchSuccess = false;
+		return(NULL);
+	}
+
+	// add a block index to the memory or append to disk
+	void AddBlockIndex(uint256 hash, CDiskBlockIndex *blockIndex, unsigned int nFile, unsigned int nBlockPos, bool append = false) {
+		if (nFile < 1) {
+			return;
+		}
+		BoostBlockIndex block;
+		block.hash = hash;
+		block.hashPrev = blockIndex->hashPrev;
+		block.hashNext = blockIndex->hashNext;
+		block.nFile = blockIndex->nFile;
+		block.nBlockPos = blockIndex->nBlockPos;
+		block.nHeight = blockIndex->nHeight;
+		block.nMint = blockIndex->nMint;
+		block.nMoneySupply = blockIndex->nMoneySupply;
+		block.nFlags = blockIndex->nFlags;
+		block.nStakeModifier = blockIndex->nStakeModifier;
+		block.prevoutStake = blockIndex->prevoutStake;
+		block.nStakeTime = blockIndex->nStakeTime;
+		block.hashProofOfStake = blockIndex->hashProofOfStake;
+		block.nVersion = blockIndex->nVersion;
+		block.hashMerkleRoot = blockIndex->hashMerkleRoot;
+		block.nTime = blockIndex->nTime;
+		block.nBits = blockIndex->nBits;
+		block.nNonce = blockIndex->nNonce;
+		if (append) {
+			char fName[16];
+			sprintf(fName, "bindex%04d.dat", nFile);
+			boost::filesystem::path path = GetDataDir() / fName;
+			file = fopen(path.string().c_str(), "ab");
+			if (file) {
+				fwrite(reinterpret_cast<const char*>(&block), 1, sizeof(block), file);
+				fwrite(reinterpret_cast<const char*>(&nBlockPos), 1, sizeof(nBlockPos), file);
+				fclose(file);
+				file = NULL;
+			}
+		}
+		else
+		{
+			map<unsigned int, BoostBlockIndex>::iterator mi = this->blocks[nFile - 1].find(nBlockPos);
+			if (mi != this->blocks[nFile - 1].end()) {
+				string s = "boostStartup::DUPLICATED KEY, please report these line: %d\n";
+				OutputDebugStringF(s.c_str(), nFile);
+				return;
+			}
+			this->blocks[nFile - 1][nBlockPos] = block;
+		}
+	}
+
+	// load entire index in memory (ATTENTION, might be big)
+	void LoadIndex() {
+		for (int i = 0; i < 8; i++) {
+			char fName[16];
+			sprintf(fName, "bindex%04d.dat", i + 1);
+			boost::filesystem::path path = GetDataDir() / fName;
+			file = fopen(path.string().c_str(), "rb");
+			if (file) {
+				blockIndexList loopBlocks;
+				bool r = true;
+				while (!feof(file)) {
+					this->isBoosted = true;
+					r &= fread(reinterpret_cast<char*>(&loopBlocks.block), 1, sizeof(loopBlocks.block), file);
+					r &= fread(reinterpret_cast<char*>(&loopBlocks.nBlockPos), 1, sizeof(loopBlocks.nBlockPos), file);
+					this->blocks[i][loopBlocks.nBlockPos] = loopBlocks.block;
+					this->recordCount++;
+				}
+				fclose(file);
+				file = NULL;
+			}
+		}
+	}
+
+	// store what is in memory to disk
+	void StoreIndex() {
+		for (int i = 0; i < 8; i++) {
+			char fName[16];
+			sprintf(fName, "bindex%04d.dat", i + 1);
+			boost::filesystem::path path = GetDataDir() / fName;
+			map<unsigned int, BoostBlockIndex>::iterator mi = this->blocks[i].begin();
+			if (mi == this->blocks[i].end()) {
+				continue;
+			}
+			file = fopen(path.string().c_str(), "wb");
+			if (file) {
+				blockIndexList loopBlocks;
+				mi = this->blocks[i].begin();
+				for (; mi != this->blocks[i].end(); ++mi) {
+					loopBlocks.block = mi->second;
+					loopBlocks.nBlockPos = mi->first;
+					fwrite(reinterpret_cast<const char*>(&loopBlocks.block), 1, sizeof(loopBlocks.block), file);
+					fwrite(reinterpret_cast<const char*>(&loopBlocks.nBlockPos), 1, sizeof(loopBlocks.nBlockPos), file);
+				}
+				fclose(file);
+				file = NULL;
+			}
+		}
+	}
 };
+
+
+
 
 
 //
@@ -393,46 +633,6 @@ void CDB::Close()
     }
 }
 
-int CDB::ReadAtCursor(Dbc* pcursor, CDataStream& ssKey, CDataStream& ssValue, unsigned int fFlags)
-{
-    // Read at cursor
-    Dbt datKey;
-    if (fFlags == DB_FIRST || fFlags == DB_SET || fFlags == DB_SET_RANGE || fFlags == DB_GET_BOTH || fFlags == DB_GET_BOTH_RANGE)
-    {
-        datKey.set_data(&ssKey[0]);
-        datKey.set_size(ssKey.size());
-    }
-    Dbt datValue;
-    if (fFlags == DB_GET_BOTH || fFlags == DB_GET_BOTH_RANGE)
-    {
-        datValue.set_data(&ssValue[0]);
-        datValue.set_size(ssValue.size());
-    }
-    datKey.set_flags(DB_DBT_MALLOC);
-    datValue.set_flags(DB_DBT_MALLOC);
-    int ret = pcursor->get(&datKey, &datValue, fFlags);
-    if (ret != 0)
-        return ret;
-    else if (datKey.get_data() == NULL || datValue.get_data() == NULL)
-        return 99999;
-
-    // Convert to streams
-    ssKey.SetType(SER_DISK);
-    ssKey.clear();
-    ssKey.write((char*)datKey.get_data(), datKey.get_size());
-    ssValue.SetType(SER_DISK);
-    ssValue.clear();
-    ssValue.write((char*)datValue.get_data(), datValue.get_size());
-
-    // Clear and free memory
-    memset(datKey.get_data(), 0, datKey.get_size());
-    memset(datValue.get_data(), 0, datValue.get_size());
-    free(datKey.get_data());
-    free(datValue.get_data());
-    return 0;
-}
-
-
 void CDBEnv::CloseDb(const string& strFile)
 {
     {
@@ -607,30 +807,19 @@ void CDBEnv::Flush(bool fShutdown)
 
 
 //
-// CCacheDB
-//
-
-bool CCacheDB::WriteCacheIndexV3(CDiskBlockIndexV3* blockindex)
-{
-	bool res = Write(make_pair(string("blockindex"), blockindex->hash), *blockindex);
-    return res; 
-}
-
-bool CCacheDB::ReadCacheIndexV3(uint256 hash, CDiskBlockIndexV3& blockindex)
-{
-    assert(!fClient);
-    return Read(make_pair(string("blockindex"), hash), blockindex);
-}
-
-
-//
 // CBlkDB
 //
 
 bool CBlkDB::WriteBlockIndex(const CDiskBlockIndex& blockindex, uint256 blockHash)
 {
+	boostStartup *boost = new boostStartup();
 	blockHash = (blockHash != 0) ? blockHash : blockindex.GetBlockHash();
-	return Write(make_pair(string("blockindex"), blockHash), blockindex);
+	CDiskBlockIndex bi = blockindex;
+	bool res = Write(make_pair(string("blockindex"), blockHash), blockindex);
+	if (res)
+		boost->AddBlockIndex(blockHash, &bi, blockindex.nFile, blockindex.nBlockPos, true);
+	delete boost;
+    return res; 
 }
 
 bool CBlkDB::WriteBlockIndexV2(const CDiskBlockIndexV2& blockindex)
@@ -639,19 +828,13 @@ bool CBlkDB::WriteBlockIndexV2(const CDiskBlockIndexV2& blockindex)
     return res; 
 }
 
-bool CBlkDB::WriteBlockIndexV3(CDiskBlockIndexV3* blockindex)
+bool CBlkDB::WriteBlockIndexV3(const CDiskBlockIndexV3& blockindex)
 {
-	bool res = Write(make_pair(string("blockindex"), blockindex->hash), *blockindex);
+	bool res = Write(make_pair(string("blockindex"), blockindex.hash), blockindex);
     return res; 
 }
 
-bool CBlkDB::ReadBlockIndexV2(uint256 hash, CDiskBlockIndexV2& blockindex)
-{
-    assert(!fClient);
-    return Read(make_pair(string("blockindex"), hash), blockindex);
-}
-
-bool CBlkDB::ReadBlockIndexV3(uint256 hash, CDiskBlockIndexV3& blockindex)
+bool CBlkDB::ReadBlockIndex(uint256 hash, CDiskBlockIndex& blockindex)
 {
     assert(!fClient);
     return Read(make_pair(string("blockindex"), hash), blockindex);
@@ -663,66 +846,65 @@ bool CBlkDB::EraseBlockIndex(uint256 hash)
     return Erase(make_pair(string("blockindex"), hash));
 }
 
-CBlockIndexV2* InsertBlockIndex(uint256 hash)
+CBlockIndex static * InsertBlockIndex(uint256 hash)
 {
     if (hash == 0)
         return NULL;
 
     // Return existing
-    map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.find(hash);
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
     if (mi != mapBlockIndex.end())
         return (*mi).second;
 
     // Create new
-    CBlockIndexV2* pindexNew = new CBlockIndexV2();
+    CBlockIndex* pindexNew = new CBlockIndex();
     if (!pindexNew)
-        throw runtime_error("LoadBlockIndex() : new CBlockIndexV2 failed");
+        throw runtime_error("LoadBlockIndex() : new CBlockIndex failed");
     mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
 
     return pindexNew;
 }
 
-bool CBlkDB::convertTo41Index()
+bool CBlkDB::convertToV3Index()
 {
     unsigned int tempcount=0;
     string tempmess;
-    string mess = "Calculating best chain...";
 
    // Calculate bnChainTrust
-    vector<pair<int, CBlockIndexV2*> > vSortedByHeight;
+    vector<pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
-    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndexV2*)& item, mapBlockIndex)
+    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
     {
-        CBlockIndexV2* pindex = item.second;
-        vSortedByHeight.push_back(make_pair(pindex->nHeight(), pindex));
+        CBlockIndex* pindex = item.second;
+        vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
       tempcount++;
       if(tempcount>=10000)
       {
-        tempmess = "Converting pairs / " + boost::to_string(pindex) + " [DO NOT INTERRUPT]";
+        tempmess = "Upgrading pairs / " + boost::to_string(pindex) + " [DO NOT INTERRUPT]";
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
       }
     }
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
-    BOOST_FOREACH(const PAIRTYPE(int, CBlockIndexV2*)& item, vSortedByHeight)
+    BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
-        CBlockIndexV2* pindex = item.second;
-		CDiskBlockIndexV3* diskindex = pindex->getDiskAccess(true);
-        diskindex->bnChainTrust = (pindex->pprev ? pindex->pprev->bnChainTrust() : 0) + pindex->GetBlockTrust();
+        CBlockIndex* pindex = item.second;
+        pindex->bnChainTrust = (pindex->pprev ? pindex->pprev->bnChainTrust : 0) + pindex->GetBlockTrust();
       tempcount++;
       if(tempcount>=30000)
       {
-        tempmess = "Storing stake modifiers / " + pindex->bnChainTrust().ToString() + " [DO NOT INTERRUPT]";
+        tempmess = "Upgrading stake modifiers / " + pindex->bnChainTrust.ToString() + " [DO NOT INTERRUPT]";
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
       }
         // ppcoin: calculate stake modifier checksum
-        diskindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindex);
-        if (!CheckStakeModifierCheckpoints(pindex->nHeight(), pindex->nStakeModifierChecksum()))
-            return error("CTxDB::LoadBlockIndex() : Failed stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindex->nHeight(), pindex->nStakeModifier);
-		WriteBlockIndexV3(diskindex);
-		diskindex->uncommitted = false;
+        pindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindex);
+        if (!CheckStakeModifierCheckpoints(pindex->nHeight, pindex->nStakeModifierChecksum))
+            return error("CTxDB::LoadBlockIndex() : Failed stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindex->nHeight, pindex->nStakeModifier);
+
+		// store calculated checksum
+		WriteBlockIndexV3(CDiskBlockIndexV3(pindex));
     }
 	return true;
 }
@@ -740,22 +922,19 @@ bool CBlkDB::LoadBlockIndex()
     string tempmess;
     string mess = "Calculating best chain...";
     uiInterface.InitMessage(_(mess.c_str()));
- 
+
     // Load hashBestChain pointer to end of best chain
     if (!pTxdb->ReadHashBestChain(hashBestChain))
     {
         if (pindexGenesisBlock == NULL)
-		{
             return true;
-		}
         return error("CTxDB::LoadBlockIndex() : hashBestChain not loaded");
     }
     if (!mapBlockIndex.count(hashBestChain))
         return error("CTxDB::LoadBlockIndex() : hashBestChain not found in the block index");
-
     pindexBest = mapBlockIndex[hashBestChain];
-    nBestHeight = pindexBest->nHeight();
-    bnBestChainTrust = pindexBest->bnChainTrust();
+    nBestHeight = pindexBest->nHeight;
+    bnBestChainTrust = pindexBest->bnChainTrust;
     printf("LoadBlockIndex(): hashBestChain=%s  height=%d  trust=%s  date=%s\n",
       hashBestChain.ToString().substr(0,20).c_str(), nBestHeight, bnBestChainTrust.ToString().c_str(),
       DateTimeStrFormat("%x %H:%M:%S", pindexBest->GetBlockTime()).c_str());
@@ -767,6 +946,7 @@ bool CBlkDB::LoadBlockIndex()
 
     // Load bnBestInvalidTrust, OK if it doesn't exist
     pTxdb->ReadBestInvalidTrust(bnBestInvalidTrust);
+
     // Verify blocks in the best chain
     int nCheckLevel = GetArg("-checklevel", 1);
     int nCheckDepth = GetArg( "-checkblocks", 2500);
@@ -775,11 +955,11 @@ bool CBlkDB::LoadBlockIndex()
     if (nCheckDepth > nBestHeight)
         nCheckDepth = nBestHeight;
     printf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
-    CBlockIndexV2* pindexFork = NULL;
-    map<pair<unsigned int, unsigned int>, CBlockIndexV2*> mapBlockPos;
+    CBlockIndex* pindexFork = NULL;
+    map<pair<unsigned int, unsigned int>, CBlockIndex*> mapBlockPos;
 
 
-    for (CBlockIndexV2* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev)
+    for (CBlockIndex* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev)
     {
     tempcount++;
     if(tempcount>=100)
@@ -789,7 +969,7 @@ bool CBlkDB::LoadBlockIndex()
       uiInterface.InitMessage(_(tempmess.c_str()));
       tempcount=0;
     }
-        if (fRequestShutdown || pindex->nHeight() < nBestHeight-nCheckDepth)
+        if (fRequestShutdown || pindex->nHeight < nBestHeight-nCheckDepth)
             break;
         CBlock block;
         if (!block.ReadFromDisk(pindex))
@@ -797,13 +977,13 @@ bool CBlkDB::LoadBlockIndex()
         // check level 1: verify block validity
         if (nCheckLevel>0 && !block.CheckBlock())
         {
-            printf("LoadBlockIndex() : *** found bad block at %d, hash=%s\n", pindex->nHeight(), pindex->GetBlockHash().ToString().c_str());
+            printf("LoadBlockIndex() : *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
             pindexFork = pindex->pprev;
         }
         // check level 2: verify transaction index validity
         if (nCheckLevel>1)
         {
-            pair<unsigned int, unsigned int> pos = make_pair(pindex->nFile(), pindex->nBlockPos());
+            pair<unsigned int, unsigned int> pos = make_pair(pindex->nFile, pindex->nBlockPos);
             mapBlockPos[pos] = pindex;
             BOOST_FOREACH(const CTransaction &tx, block.vtx)
             {
@@ -812,7 +992,7 @@ bool CBlkDB::LoadBlockIndex()
                 if (pTxdb->ReadTxIndex(hashTx, txindex))
                 {
                     // check level 3: checker transaction hashes
-                    if (nCheckLevel>2 || pindex->nFile() != txindex.pos.nFile || pindex->nBlockPos() != txindex.pos.nBlockPos)
+                    if (nCheckLevel>2 || pindex->nFile != txindex.pos.nFile || pindex->nBlockPos != txindex.pos.nBlockPos)
                     {
                         // either an error or a duplicate transaction
                         CTransaction txFound;
@@ -839,7 +1019,7 @@ bool CBlkDB::LoadBlockIndex()
                                 pair<unsigned int, unsigned int> posFind = make_pair(txpos.nFile, txpos.nBlockPos);
                                 if (!mapBlockPos.count(posFind))
                                 {
-                                    printf("LoadBlockIndex(): *** found bad spend at %d, hashBlock=%s, hashTx=%s\n", pindex->nHeight(), pindex->GetBlockHash().ToString().c_str(), hashTx.ToString().c_str());
+                                    printf("LoadBlockIndex(): *** found bad spend at %d, hashBlock=%s, hashTx=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str(), hashTx.ToString().c_str());
                                     pindexFork = pindex->pprev;
                                 }
                                 // check level 6: check whether spent txouts were spent by a valid transaction that consume them
@@ -894,7 +1074,7 @@ bool CBlkDB::LoadBlockIndex()
     if (pindexFork && !fRequestShutdown)
     {
         // Reorg back to the fork
-        printf("LoadBlockIndex() : *** moving best chain pointer back to block %d\n", pindexFork->nHeight());
+        printf("LoadBlockIndex() : *** moving best chain pointer back to block %d\n", pindexFork->nHeight);
         CBlock block;
         if (!block.ReadFromDisk(pindexFork))
             return error("LoadBlockIndex() : block.ReadFromDisk failed");
@@ -919,7 +1099,7 @@ void CBlkDB::DestroyCachedIndex()
 	boost->destroy();
 	delete boost;
 }
-
+extern bool txIndexFileExists;
 bool CBlkDB::LoadBlockIndexGuts()
 {
 	// by Simone: if txindex do not exist, we need to split blkindex and txindex !
@@ -928,16 +1108,7 @@ bool CBlkDB::LoadBlockIndexGuts()
 		DestroyCachedIndex();
 		pTxdb->SpliceTxIndex();
 	}
-
-    // loop control variables
-	double ccc = 0;
-	double cnt = 0;
-	int oldProgress = -1;
-
-	// instead of counting the number of records, which is pointless and VERY slow on old machines, we just set an approximate number
-	cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 337.0;
-	oldProgress = -1;
-	map<unsigned long, CBlockIndexV2 *> repairIndexes;
+	map<unsigned long, CBlockIndex *> repairIndexes;
 
 	// use bulk suggested way to loop entire DB
 	DB *dbp = pdb->get_DB();
@@ -949,7 +1120,14 @@ bool CBlkDB::LoadBlockIndexGuts()
 	void *p;
 
 	// identify the start of the loading process
+	bool needUpgradeV3 = false;
 	loading_process:
+
+    // loop control variables
+	double ccc = 0;
+	double cnt = 0;
+	int oldProgress = -1;
+	cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 432.0;
 
 	// prepare for loop
 	memset(&key, 0, sizeof(key));
@@ -967,7 +1145,6 @@ bool CBlkDB::LoadBlockIndexGuts()
 	}
 
 	// loop all data in big chunks
-	bool needUpgrade41 = false;
 	loop {
 
 	// get the chunk
@@ -987,8 +1164,8 @@ bool CBlkDB::LoadBlockIndexGuts()
 			}
 			if (progress != oldProgress) {
 				char pString[256];
-				if (needUpgrade41)
-					sprintf(pString, (_("Converting index (%d%%)... [DO NOT INTERRUPT]")).c_str(), progress);
+				if (needUpgradeV3)
+					sprintf(pString, (_("Upgrading index (%d%%)... [DO NOT INTERRUPT]")).c_str(), progress);
 				else
 					sprintf(pString, (_("Loading block index (%d%%)...")).c_str(), progress);
 		#ifdef QT_GUI
@@ -1017,61 +1194,58 @@ bool CBlkDB::LoadBlockIndexGuts()
 				CDiskBlockIndexV3Conv diskindexPrior41;
 
 	// if already flagged for conversion, just read conversion data
-				try {
-			    	ssValue >> diskindex;
-				} catch (std::exception &e) {
-
-	// it may be necessary to convert the data from previous 4.1.0.1 versions, let's try to squeeze the stream like this
+				if (needUpgradeV3)
+				{
+					ssValue >> diskindexPrior41;
+				}
+				else
+				{	
 					try {
-						CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
-						ssValue41.SetType(SER_DISK);
-						ssValue41.clear();
-						ssValue41.write((char*)retdata, (int)retdlen);
-						ssValue41 >> diskindexPrior41;
-
-	// if logic reaches here, then we need to updgrade after the loop
-						needUpgrade41 = true;
+				    	ssValue >> diskindex;
 					} catch (std::exception &e) {
 
-	// nope, it really is an error, so we need to handle it
-						return false;
+	// it may be necessary to convert the data from previous 4.1.0.1 versions, let's try to squeeze the stream like this
+						try {
+							CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
+							ssValue41.SetType(SER_DISK);
+							ssValue41.clear();
+							ssValue41.write((char*)retdata, (int)retdlen);
+							ssValue41 >> diskindexPrior41;
+
+	// if logic reaches here, then we need to updgrade after the loop
+							needUpgradeV3 = true;
+						} catch (std::exception &e) {
+
+	// nope, it really is an error, so we need to live with it
+							return false;
+						}
 					}
 				}
 
     // construct block index object
-		        CBlockIndexV2* pindexNew;
+		        CBlockIndex* pindexNew;
 				uint256 hash;
-				if (needUpgrade41)
+				if (needUpgradeV3)
 				{
-					duringConversion          = true;
 					hash                      = diskindexPrior41.GetBlockHash();
 				    pindexNew                 = InsertBlockIndex(hash);
 				    pindexNew->pprev          = InsertBlockIndex(diskindexPrior41.hashPrev);
 				    pindexNew->pnext          = InsertBlockIndex(diskindexPrior41.hashNext);
 				    pindexNew->nFlags         = diskindexPrior41.nFlags;
 				    pindexNew->nStakeModifier = diskindexPrior41.nStakeModifier;
-
-	// during conversion, we load everything else too
-					CDiskBlockIndexV3* diskaccess = pindexNew->getPureDiskAccess();
-				    diskaccess->nFile          = diskindex.nFile;
-				    diskaccess->nBlockPos      = diskindex.nBlockPos;
-				    diskaccess->nHeight        = diskindex.nHeight;
-				    diskaccess->nMint          = diskindex.nMint;
-				    diskaccess->nMoneySupply   = diskindex.nMoneySupply;
-				    diskaccess->prevoutStake   = diskindex.prevoutStake;
-				    diskaccess->nStakeTime     = diskindex.nStakeTime;
-				    diskaccess->hashProofOfStake = diskindex.hashProofOfStake;
-				    diskaccess->nVersion       = diskindex.nVersion;
-				    diskaccess->hashMerkleRoot = diskindex.hashMerkleRoot;
-				    diskaccess->nTime          = diskindex.nTime;
-				    diskaccess->nBits          = diskindex.nBits;
-				    diskaccess->nNonce         = diskindex.nNonce;
-
-	// detect empty hashes
-					if (diskindexPrior41.hash == 0)
-					{
-						repairIndexes.insert(make_pair(ccc, pindexNew));
-					}
+				    pindexNew->nFile          = diskindexPrior41.nFile;
+				    pindexNew->nBlockPos      = diskindexPrior41.nBlockPos;
+				    pindexNew->nHeight        = diskindexPrior41.nHeight;
+				    pindexNew->nMint          = diskindexPrior41.nMint;
+				    pindexNew->nMoneySupply   = diskindexPrior41.nMoneySupply;
+				    pindexNew->prevoutStake   = diskindexPrior41.prevoutStake;
+				    pindexNew->nStakeTime     = diskindexPrior41.nStakeTime;
+				    pindexNew->hashProofOfStake = diskindexPrior41.hashProofOfStake;
+				    pindexNew->nVersion       = diskindexPrior41.nVersion;
+				    pindexNew->hashMerkleRoot = diskindexPrior41.hashMerkleRoot;
+				    pindexNew->nTime          = diskindexPrior41.nTime;
+				    pindexNew->nBits          = diskindexPrior41.nBits;
+				    pindexNew->nNonce         = diskindexPrior41.nNonce;
 
     // watch for genesis block
 				    if (pindexGenesisBlock == NULL && hash == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet))
@@ -1083,11 +1257,29 @@ bool CBlkDB::LoadBlockIndexGuts()
 				}
 				else
 				{
-				    pindexNew                 = InsertBlockIndex(diskindex.GetBlockHash());
+					hash                      = diskindex.GetBlockHash();
+				    pindexNew                 = InsertBlockIndex(hash);
 				    pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
 				    pindexNew->pnext          = InsertBlockIndex(diskindex.hashNext);
 				    pindexNew->nFlags         = diskindex.nFlags;
 				    pindexNew->nStakeModifier = diskindex.nStakeModifier;
+				    pindexNew->nFile          = diskindex.nFile;
+				    pindexNew->nBlockPos      = diskindex.nBlockPos;
+				    pindexNew->nHeight        = diskindex.nHeight;
+				    pindexNew->nMint          = diskindex.nMint;
+				    pindexNew->nMoneySupply   = diskindex.nMoneySupply;
+				    pindexNew->prevoutStake   = diskindex.prevoutStake;
+				    pindexNew->nStakeTime     = diskindex.nStakeTime;
+				    pindexNew->hashProofOfStake = diskindex.hashProofOfStake;
+				    pindexNew->nVersion       = diskindex.nVersion;
+				    pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
+				    pindexNew->nTime          = diskindex.nTime;
+				    pindexNew->nBits          = diskindex.nBits;
+				    pindexNew->nNonce         = diskindex.nNonce;
+
+	// the two new things that are loaded as well
+					pindexNew->bnChainTrust = diskindex.bnChainTrust;
+			        pindexNew->nStakeModifierChecksum = diskindex.nStakeModifierChecksum;
 
 	// detect empty hashes
 					if (diskindex.hash == 0)
@@ -1110,12 +1302,16 @@ bool CBlkDB::LoadBlockIndexGuts()
 	free(data.data);
 
 	// test 4.1.0.1 or above upgrade needed, then just do it
-	if (needUpgrade41)
+	if (needUpgradeV3)
 	{
-		if (convertTo41Index())
+		if (convertToV3Index())
 		{
-			duringConversion = false;
+			needUpgradeV3 = false;
 			goto loading_process;		// jump to the beginning of the loop, effectively loading once more the correct chain
+		}
+		else
+		{
+			return false;
 		}
 	}
 
@@ -1123,14 +1319,16 @@ bool CBlkDB::LoadBlockIndexGuts()
 #ifdef QT_GUI
 	uiInterface.InitMessage((_("Repairing index...")).c_str());
 #endif
-	for (map<unsigned long, CBlockIndexV2 *>::iterator mi = repairIndexes.begin(); mi != repairIndexes.end(); ++mi)
+	for (map<unsigned long, CBlockIndex *>::iterator mi = repairIndexes.begin(); mi != repairIndexes.end(); ++mi)
 	{
 		CDiskBlockIndexV3 repairIndex((*mi).second);
-		WriteBlockIndexV3(&repairIndex);
+		WriteBlockIndexV3(repairIndex);
 	}
 	repairIndexes.clear();
 	return true;
 }
+
+
 
 
 //
@@ -1284,7 +1482,7 @@ bool CTxDB::SpliceTxIndex()
 		}
 		if (oldProgress != progress) {
 			char pString[256];
-			sprintf(pString, (_("Upgrading block index (SLOW, %d%%)...") + "   " + _("[DO NOT INTERRUPT]")).c_str(), progress);
+			sprintf(pString, (_("Upgrading block index (SLOW, %d%%)...") + "   " + _("[DO NOT INTERRUPT !!!]")).c_str(), progress);
 #ifdef QT_GUI
 			uiInterface.InitMessage(pString);
 #endif

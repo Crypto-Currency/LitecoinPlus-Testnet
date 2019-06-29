@@ -264,10 +264,14 @@ protected:
     }
 
 public:
-
-	CScript& operator= ( const CScript & ) = default;
-
     CScript() { }
+
+#if __cplusplus == 201703L
+	CScript& operator= ( const CScript & ) = default;
+#elif __cplusplus == 201402L
+	CScript& operator= ( const CScript & ) = default;
+#endif
+
     CScript(const CScript& b) : std::vector<unsigned char>(b.begin(), b.end()) { }
     CScript(const_iterator pbegin, const_iterator pend) : std::vector<unsigned char>(pbegin, pend) { }
 #ifndef _MSC_VER

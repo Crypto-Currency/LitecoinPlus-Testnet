@@ -275,7 +275,6 @@ std::string HelpMessage()
         "  -daemon                " + _("Run in the background as a daemon and accept commands") + "\n" +
 #endif
         "  -testnet               " + _("Use the test network") + "\n" +
-        "  -netoffline            " + _("Starts with the wallet offline (default: starts online)") + "\n" +
         "  -debug                 " + _("Output extra debugging information. Implies all other -debug* options") + "\n" +
         "  -debugnet              " + _("Output extra network debugging information") + "\n" +
         "  -logtimestamps         " + _("Prepend debug output with timestamp") + "\n" +
@@ -436,11 +435,7 @@ bool AppInit2()
     // ********************************************************* Step 2: parameter interactions
     SoftSetBoolArg("-listen", true); // just making sure
 
-	//fTestNet = GetBoolArg("-testnet");
-	fTestNet = true;
-
-	extern bool netOffline;
-	netOffline = GetBoolArg("-netoffline", false);
+    fTestNet = GetBoolArg("-testnet");
 
     if (mapArgs.count("-bind")) {
         // when specifying an explicit binding address, you want to listen on it
@@ -809,12 +804,12 @@ bool AppInit2()
     {
         string strMatch = mapArgs["-printblock"];
         int nFound = 0;
-        for (map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
+        for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
         {
             uint256 hash = (*mi).first;
             if (strncmp(hash.ToString().c_str(), strMatch.c_str(), strMatch.size()) == 0)
             {
-                CBlockIndexV2* pindex = (*mi).second;
+                CBlockIndex* pindex = (*mi).second;
                 CBlock block;
                 block.ReadFromDisk(pindex);
                 block.BuildMerkleTree();
@@ -915,7 +910,7 @@ bool AppInit2()
 
     RegisterWallet(pwalletMain);
 
-    CBlockIndexV2 *pindexRescan = pindexBest;
+    CBlockIndex *pindexRescan = pindexBest;
     if (GetBoolArg("-rescan"))
         pindexRescan = pindexGenesisBlock;
     else
@@ -925,10 +920,10 @@ bool AppInit2()
         if (walletdb.ReadBestBlock(locator))
             pindexRescan = locator.GetBlockIndex();
     }
-    if (pindexBest != pindexRescan && pindexBest && pindexRescan && pindexBest->nHeight() > pindexRescan->nHeight())
+    if (pindexBest != pindexRescan && pindexBest && pindexRescan && pindexBest->nHeight > pindexRescan->nHeight)
     {
         uiInterface.InitMessage(_("Rescanning..."));
-        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight() - pindexRescan->nHeight(), pindexRescan->nHeight());
+        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
         nStart = GetTimeMillis();
         pwalletMain->ScanForWalletTransactions(pindexRescan, true);
         printf(" rescan      %15" PRI64d "ms\n", GetTimeMillis() - nStart);

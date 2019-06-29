@@ -84,15 +84,15 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
     if (hashBlock != 0)
     {
         entry.push_back(Pair("blockhash", hashBlock.GetHex()));
-        map<uint256, CBlockIndexV2*>::iterator mi = mapBlockIndex.find(hashBlock);
+        map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
         if (mi != mapBlockIndex.end() && (*mi).second)
         {
-            CBlockIndexV2* pindex = (*mi).second;
+            CBlockIndex* pindex = (*mi).second;
             if (pindex->IsInMainChain())
             {
-                entry.push_back(Pair("confirmations", 1 + nBestHeight - pindex->nHeight()));
-                entry.push_back(Pair("time", (boost::int64_t)pindex->nTime()));
-                entry.push_back(Pair("blocktime", (boost::int64_t)pindex->nTime()));
+                entry.push_back(Pair("confirmations", 1 + nBestHeight - pindex->nHeight));
+                entry.push_back(Pair("time", (boost::int64_t)pindex->nTime));
+                entry.push_back(Pair("blocktime", (boost::int64_t)pindex->nTime));
             }
             else
                 entry.push_back(Pair("confirmations", 0));

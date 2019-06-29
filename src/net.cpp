@@ -169,7 +169,7 @@ CNode::~CNode()
 
 unsigned int lastSendBlock;
 
-void CNode::PushGetBlocks(CBlockIndexV2* pindexBegin, uint256 hashEnd)
+void CNode::PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd)
 {
     // Filter out duplicate requests
 	if (pindexBegin == pindexLastGetBlocksBegin && hashEnd == hashLastGetBlocksEnd)

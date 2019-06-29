@@ -76,7 +76,7 @@ bool fCommandLine = false;
 string strMiscWarning;
 bool fTestNet = false;
 bool fNoListen = false;
-bool fLogTimestamps = true;
+bool fLogTimestamps = false;
 CMedianFilter<int64> vTimeOffsets(200,0);
 bool fReopenDebugLog = false;
 
@@ -1092,7 +1092,7 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
     } else {
         path = GetDefaultDataDir();
     }
-    if (fNetSpecific) // && GetBoolArg("-testnet", false))
+    if (fNetSpecific && GetBoolArg("-testnet", false))
         path /= "testnet2";
 
     fs::create_directory(path);

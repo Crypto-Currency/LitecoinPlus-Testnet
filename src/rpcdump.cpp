@@ -17,7 +17,7 @@ using namespace std;
 class CTxDump
 {
 public:
-    CBlockIndexV2 *pindex;
+    CBlockIndex *pindex;
     int64 nValue;
     bool fSpent;
     CWalletTx* ptx;
