@@ -1,9 +1,9 @@
-***** Version 4.1.0.1
-- Upgrade whole wallet to CBlockIndexV2 and CDiskBlockIndexV3
-- RAM saving went from 224 bytes/block to 72 bytes a block, net saving of 152 bytes / block
-- CBlockIndexV2 reads missing needed data from disk on a "per-needed" basis, via CTxDB -> CBlkDB
+***** Version 4.0.1.1
+- Backporting important changes supposed to be for 4.1.0.1, re-listed below
 - WARNING-FIX: removed all warnings that appear with newer C++ versions (g++ 9)
 - Removing Loading Pairs / Calculating Stake Modifier step, save data in index instead (V3)
+- Automatic conversion of stored index from V2 to V3 (no need resync entire blockchain)
+- Core dump handler and stack tracing
 
 
 ***** Version 4.0.0.2
