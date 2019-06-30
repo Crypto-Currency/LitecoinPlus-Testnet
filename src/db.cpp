@@ -687,7 +687,6 @@ bool CBlkDB::convertTo41Index()
 {
     unsigned int tempcount=0;
     string tempmess;
-    string mess = "Calculating best chain...";
 
    // Calculate bnChainTrust
     vector<pair<int, CBlockIndexV2*> > vSortedByHeight;
@@ -699,7 +698,7 @@ bool CBlkDB::convertTo41Index()
       tempcount++;
       if(tempcount>=10000)
       {
-        tempmess = "Converting pairs / " + boost::to_string(pindex) + " [DO NOT INTERRUPT]";
+        tempmess = "Upgrading pairs / " + boost::to_string(pindex) + " [DO NOT INTERRUPT]";
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
       }
@@ -713,7 +712,7 @@ bool CBlkDB::convertTo41Index()
       tempcount++;
       if(tempcount>=30000)
       {
-        tempmess = "Storing stake modifiers / " + pindex->bnChainTrust().ToString() + " [DO NOT INTERRUPT]";
+        tempmess = "Upgrading stake modifiers / " + pindex->bnChainTrust().ToString() + " [DO NOT INTERRUPT]";
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
       }
@@ -721,6 +720,14 @@ bool CBlkDB::convertTo41Index()
         diskindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindex);
         if (!CheckStakeModifierCheckpoints(pindex->nHeight(), pindex->nStakeModifierChecksum()))
             return error("CTxDB::LoadBlockIndex() : Failed stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindex->nHeight(), pindex->nStakeModifier);
+
+		// move calculatd stuff into correct structure before saving
+		diskindex->hashPrev = pindex->pprev ? pindex->pprev->GetBlockHash() : 0;
+		diskindex->hashNext = pindex->pnext ? pindex->pnext->GetBlockHash() : 0;
+		diskindex->hash = pindex->GetBlockHash();
+		diskindex->nFlags = pindex->nFlags;
+		diskindex->nStakeModifier = pindex->nStakeModifier;
+
 		WriteBlockIndexV3(diskindex);
 		diskindex->uncommitted = false;
     }
@@ -740,7 +747,7 @@ bool CBlkDB::LoadBlockIndex()
     string tempmess;
     string mess = "Calculating best chain...";
     uiInterface.InitMessage(_(mess.c_str()));
- 
+
     // Load hashBestChain pointer to end of best chain
     if (!pTxdb->ReadHashBestChain(hashBestChain))
     {
@@ -777,7 +784,6 @@ bool CBlkDB::LoadBlockIndex()
     printf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CBlockIndexV2* pindexFork = NULL;
     map<pair<unsigned int, unsigned int>, CBlockIndexV2*> mapBlockPos;
-
 
     for (CBlockIndexV2* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev)
     {
@@ -928,15 +934,6 @@ bool CBlkDB::LoadBlockIndexGuts()
 		DestroyCachedIndex();
 		pTxdb->SpliceTxIndex();
 	}
-
-    // loop control variables
-	double ccc = 0;
-	double cnt = 0;
-	int oldProgress = -1;
-
-	// instead of counting the number of records, which is pointless and VERY slow on old machines, we just set an approximate number
-	cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 337.0;
-	oldProgress = -1;
 	map<unsigned long, CBlockIndexV2 *> repairIndexes;
 
 	// use bulk suggested way to loop entire DB
@@ -949,7 +946,14 @@ bool CBlkDB::LoadBlockIndexGuts()
 	void *p;
 
 	// identify the start of the loading process
+	bool needUpgrade41 = false;
 	loading_process:
+
+    // loop control variables
+	double ccc = 0;
+	double cnt = 0;
+	int oldProgress = -1;
+	cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 337.0;
 
 	// prepare for loop
 	memset(&key, 0, sizeof(key));
@@ -967,7 +971,6 @@ bool CBlkDB::LoadBlockIndexGuts()
 	}
 
 	// loop all data in big chunks
-	bool needUpgrade41 = false;
 	loop {
 
 	// get the chunk
@@ -988,7 +991,7 @@ bool CBlkDB::LoadBlockIndexGuts()
 			if (progress != oldProgress) {
 				char pString[256];
 				if (needUpgrade41)
-					sprintf(pString, (_("Converting index (%d%%)... [DO NOT INTERRUPT]")).c_str(), progress);
+					sprintf(pString, (_("Upgrading index (%d%%)... [DO NOT INTERRUPT]")).c_str(), progress);
 				else
 					sprintf(pString, (_("Loading block index (%d%%)...")).c_str(), progress);
 		#ifdef QT_GUI
@@ -1017,24 +1020,31 @@ bool CBlkDB::LoadBlockIndexGuts()
 				CDiskBlockIndexV3Conv diskindexPrior41;
 
 	// if already flagged for conversion, just read conversion data
-				try {
-			    	ssValue >> diskindex;
-				} catch (std::exception &e) {
-
-	// it may be necessary to convert the data from previous 4.1.0.1 versions, let's try to squeeze the stream like this
+				if (needUpgrade41)
+				{
+					ssValue >> diskindexPrior41;
+				}
+				else
+				{	
 					try {
-						CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
-						ssValue41.SetType(SER_DISK);
-						ssValue41.clear();
-						ssValue41.write((char*)retdata, (int)retdlen);
-						ssValue41 >> diskindexPrior41;
-
-	// if logic reaches here, then we need to updgrade after the loop
-						needUpgrade41 = true;
+				    	ssValue >> diskindex;
 					} catch (std::exception &e) {
 
-	// nope, it really is an error, so we need to handle it
-						return false;
+	// it may be necessary to convert the data from previous 4.1.0.1 versions, let's try to squeeze the stream like this
+						try {
+							CDataStream ssValue41(SER_DISK, CLIENT_VERSION);
+							ssValue41.SetType(SER_DISK);
+							ssValue41.clear();
+							ssValue41.write((char*)retdata, (int)retdlen);
+							ssValue41 >> diskindexPrior41;
+
+	// if logic reaches here, then we need to updgrade after the loop
+							needUpgrade41 = true;
+						} catch (std::exception &e) {
+
+	// nope, it really is an error, so we need to live with it
+							return false;
+						}
 					}
 				}
 
@@ -1053,25 +1063,19 @@ bool CBlkDB::LoadBlockIndexGuts()
 
 	// during conversion, we load everything else too
 					CDiskBlockIndexV3* diskaccess = pindexNew->getPureDiskAccess();
-				    diskaccess->nFile          = diskindex.nFile;
-				    diskaccess->nBlockPos      = diskindex.nBlockPos;
-				    diskaccess->nHeight        = diskindex.nHeight;
-				    diskaccess->nMint          = diskindex.nMint;
-				    diskaccess->nMoneySupply   = diskindex.nMoneySupply;
-				    diskaccess->prevoutStake   = diskindex.prevoutStake;
-				    diskaccess->nStakeTime     = diskindex.nStakeTime;
-				    diskaccess->hashProofOfStake = diskindex.hashProofOfStake;
-				    diskaccess->nVersion       = diskindex.nVersion;
-				    diskaccess->hashMerkleRoot = diskindex.hashMerkleRoot;
-				    diskaccess->nTime          = diskindex.nTime;
-				    diskaccess->nBits          = diskindex.nBits;
-				    diskaccess->nNonce         = diskindex.nNonce;
-
-	// detect empty hashes
-					if (diskindexPrior41.hash == 0)
-					{
-						repairIndexes.insert(make_pair(ccc, pindexNew));
-					}
+				    diskaccess->nFile          = diskindexPrior41.nFile;
+				    diskaccess->nBlockPos      = diskindexPrior41.nBlockPos;
+				    diskaccess->nHeight        = diskindexPrior41.nHeight;
+				    diskaccess->nMint          = diskindexPrior41.nMint;
+				    diskaccess->nMoneySupply   = diskindexPrior41.nMoneySupply;
+				    diskaccess->prevoutStake   = diskindexPrior41.prevoutStake;
+				    diskaccess->nStakeTime     = diskindexPrior41.nStakeTime;
+				    diskaccess->hashProofOfStake = diskindexPrior41.hashProofOfStake;
+				    diskaccess->nVersion       = diskindexPrior41.nVersion;
+				    diskaccess->hashMerkleRoot = diskindexPrior41.hashMerkleRoot;
+				    diskaccess->nTime          = diskindexPrior41.nTime;
+				    diskaccess->nBits          = diskindexPrior41.nBits;
+				    diskaccess->nNonce         = diskindexPrior41.nNonce;
 
     // watch for genesis block
 				    if (pindexGenesisBlock == NULL && hash == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet))
@@ -1115,7 +1119,12 @@ bool CBlkDB::LoadBlockIndexGuts()
 		if (convertTo41Index())
 		{
 			duringConversion = false;
+			needUpgrade41 = false;
 			goto loading_process;		// jump to the beginning of the loop, effectively loading once more the correct chain
+		}
+		else
+		{
+			return false;
 		}
 	}
 

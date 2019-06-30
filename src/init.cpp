@@ -436,8 +436,8 @@ bool AppInit2()
     // ********************************************************* Step 2: parameter interactions
     SoftSetBoolArg("-listen", true); // just making sure
 
-	//fTestNet = GetBoolArg("-testnet");
-	fTestNet = true;
+	fTestNet = GetBoolArg("-testnet");
+	//fTestNet = true;
 
 	extern bool netOffline;
 	netOffline = GetBoolArg("-netoffline", false);
@@ -927,34 +927,43 @@ bool AppInit2()
     }
     if (pindexBest != pindexRescan && pindexBest && pindexRescan && pindexBest->nHeight() > pindexRescan->nHeight())
     {
-        uiInterface.InitMessage(_("Rescanning..."));
-        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight() - pindexRescan->nHeight(), pindexRescan->nHeight());
-        nStart = GetTimeMillis();
-        pwalletMain->ScanForWalletTransactions(pindexRescan, true);
-        printf(" rescan      %15" PRI64d "ms\n", GetTimeMillis() - nStart);
-        nWalletDBUpdated++;
+		if (pindexBest->nHeight() - pindexRescan->nHeight() < 100000)
+		{
+		    printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight() - pindexRescan->nHeight(), pindexRescan->nHeight());
+		    nStart = GetTimeMillis();
+		    pwalletMain->ScanForWalletTransactions(pindexRescan, true);
+		    printf(" rescan      %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		    nWalletDBUpdated++;
 
-        // Restore wallet transaction metadata after -zapwallettxes
-        if (GetBoolArg("-zapwallettxes", false))
-        {
-          BOOST_FOREACH(const CWalletTx& wtxOld, vWtx)
-          {
-            uint256 hash = wtxOld.GetHash();
-            std::map<uint256, CWalletTx>::iterator mi = pwalletMain->mapWallet.find(hash);
-            if (mi != pwalletMain->mapWallet.end())
-            {
-              const CWalletTx* copyFrom = &wtxOld;
-              CWalletTx* copyTo = &mi->second;
-              copyTo->mapValue = copyFrom->mapValue;
-              copyTo->vOrderForm = copyFrom->vOrderForm;
-              copyTo->nTimeReceived = copyFrom->nTimeReceived;
-              copyTo->nTimeSmart = copyFrom->nTimeSmart;
-              copyTo->fFromMe = copyFrom->fFromMe;
-              copyTo->strFromAccount = copyFrom->strFromAccount;
-              copyTo->nOrderPos = copyFrom->nOrderPos;
-              copyTo->WriteToDisk();
-            }
-          }
+		    // Restore wallet transaction metadata after -zapwallettxes
+		    if (GetBoolArg("-zapwallettxes", false))
+		    {
+		      BOOST_FOREACH(const CWalletTx& wtxOld, vWtx)
+		      {
+		        uint256 hash = wtxOld.GetHash();
+				static int messCnt = 0;
+				if (messCnt % 3000)
+				{
+					uiInterface.InitMessage(_("Rescanning... / ") + boost::to_string(&vWtx));
+					messCnt = 0;
+				}
+				messCnt++;
+		        std::map<uint256, CWalletTx>::iterator mi = pwalletMain->mapWallet.find(hash);
+		        if (mi != pwalletMain->mapWallet.end())
+		        {
+		          const CWalletTx* copyFrom = &wtxOld;
+		          CWalletTx* copyTo = &mi->second;
+		          copyTo->mapValue = copyFrom->mapValue;
+		          copyTo->vOrderForm = copyFrom->vOrderForm;
+		          copyTo->nTimeReceived = copyFrom->nTimeReceived;
+		          copyTo->nTimeSmart = copyFrom->nTimeSmart;
+		          copyTo->fFromMe = copyFrom->fFromMe;
+		          copyTo->strFromAccount = copyFrom->strFromAccount;
+		          copyTo->nOrderPos = copyFrom->nOrderPos;
+		          copyTo->WriteToDisk();
+		        }
+		      }
+			}
         }
     }
 

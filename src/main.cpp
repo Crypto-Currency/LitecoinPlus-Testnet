@@ -2651,25 +2651,12 @@ bool CBlock::AcceptBlock(bool lessAggressive)
 		int nBlockEstimate = Checkpoints::GetTotalBlocksEstimate();
 		if (hashBestChain == hash)
 		{
-			loop
 			{
-		   		{
-					// by Simone: use TRY LOCK, not a LOCK....
-				    TRY_LOCK(cs_vNodes, lockStatus);
-					if (lockStatus)
-				    {
-						BOOST_FOREACH(CNode* pnode, vNodes)
-						{
-						    if (nBestHeight > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : nBlockEstimate))
-						        pnode->PushInventory(CInv(MSG_BLOCK, hash));
-						}
-						break;
-					}
-					else
-					{
-						Sleep(20);
-						continue;
-					}
+		    	LOCK(cs_vNodes);
+				BOOST_FOREACH(CNode* pnode, vNodes)
+				{
+				    if (nBestHeight > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : nBlockEstimate))
+				        pnode->PushInventory(CInv(MSG_BLOCK, hash));
 				}
 			}
 		}
@@ -4130,42 +4117,30 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
             if (addr.nTime > nSince && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
             {
                 // Relay to a limited number of other nodes
-				loop
-				{
+	            {
+	                LOCK(cs_vNodes);
+		            // Use deterministic randomness to send to the same nodes for 24 hours
+		            // at a time so the setAddrKnowns of the chosen nodes prevent repeats
+		            static uint256 hashSalt;
+		            if (hashSalt == 0)
+		                hashSalt = GetRandHash();
+		            uint64 hashAddr = addr.GetHash();
+		            uint256 hashRand = hashSalt ^ (hashAddr<<32) ^ ((GetTime()+hashAddr)/(24*60*60));
+		            hashRand = Hash(BEGIN(hashRand), END(hashRand));
+		            multimap<uint256, CNode*> mapMix;
+		            BOOST_FOREACH(CNode* pnode, vNodes)
 		            {
-		                TRY_LOCK(cs_vNodes, lockNodes);
-						if (lockNodes)
-						{
-				            // Use deterministic randomness to send to the same nodes for 24 hours
-				            // at a time so the setAddrKnowns of the chosen nodes prevent repeats
-				            static uint256 hashSalt;
-				            if (hashSalt == 0)
-				                hashSalt = GetRandHash();
-				            uint64 hashAddr = addr.GetHash();
-				            uint256 hashRand = hashSalt ^ (hashAddr<<32) ^ ((GetTime()+hashAddr)/(24*60*60));
-				            hashRand = Hash(BEGIN(hashRand), END(hashRand));
-				            multimap<uint256, CNode*> mapMix;
-				            BOOST_FOREACH(CNode* pnode, vNodes)
-				            {
-				                if (pnode->nVersion < CADDR_TIME_VERSION)
-				                    continue;
-				                unsigned int nPointer;
-				                memcpy(&nPointer, &pnode, sizeof(nPointer));
-				                uint256 hashKey = hashRand ^ nPointer;
-				                hashKey = Hash(BEGIN(hashKey), END(hashKey));
-				                mapMix.insert(make_pair(hashKey, pnode));
-				            }
-				            int nRelayNodes = fReachable ? 2 : 1; // limited relaying of addresses outside our network(s)
-				            for (multimap<uint256, CNode*>::iterator mi = mapMix.begin(); mi != mapMix.end() && nRelayNodes-- > 0; ++mi)
-				                ((*mi).second)->PushAddress(addr);
-							break;
-						}
-						else
-						{
-							Sleep(50);
-							continue;
-						}
+		                if (pnode->nVersion < CADDR_TIME_VERSION)
+		                    continue;
+		                unsigned int nPointer;
+		                memcpy(&nPointer, &pnode, sizeof(nPointer));
+		                uint256 hashKey = hashRand ^ nPointer;
+		                hashKey = Hash(BEGIN(hashKey), END(hashKey));
+		                mapMix.insert(make_pair(hashKey, pnode));
 		            }
+		            int nRelayNodes = fReachable ? 2 : 1; // limited relaying of addresses outside our network(s)
+		            for (multimap<uint256, CNode*>::iterator mi = mapMix.begin(); mi != mapMix.end() && nRelayNodes-- > 0; ++mi)
+		                ((*mi).second)->PushAddress(addr);
 				}
             }
             // Do not store addresses outside our network
@@ -4908,66 +4883,54 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 		    //
 		    vector<CInv> vInv;
 		    vector<CInv> vInvWait;
-			loop
 			{
+			    LOCK(pto->cs_inventory);
+				vInv.reserve(pto->vInventoryToSend.size());
+				vInvWait.reserve(pto->vInventoryToSend.size());
+				BOOST_FOREACH(const CInv& inv, pto->vInventoryToSend)
 				{
-				    TRY_LOCK(pto->cs_inventory, lockInv);
-					if (lockInv)
-					{
-						vInv.reserve(pto->vInventoryToSend.size());
-						vInvWait.reserve(pto->vInventoryToSend.size());
-						BOOST_FOREACH(const CInv& inv, pto->vInventoryToSend)
-						{
-						    if (pto->setInventoryKnown.count(inv))
-						        continue;
+				    if (pto->setInventoryKnown.count(inv))
+				        continue;
 
-						    // trickle out tx inv to protect privacy
-						    if (inv.type == MSG_TX && !fSendTrickle)
-						    {
-						        // 1/4 of tx invs blast to all immediately
-						        static uint256 hashSalt;
-						        if (hashSalt == 0)
-						            hashSalt = GetRandHash();
-						        uint256 hashRand = inv.hash ^ hashSalt;
-						        hashRand = Hash(BEGIN(hashRand), END(hashRand));
-						        bool fTrickleWait = ((hashRand & 3) != 0);
+				    // trickle out tx inv to protect privacy
+				    if (inv.type == MSG_TX && !fSendTrickle)
+				    {
+				        // 1/4 of tx invs blast to all immediately
+				        static uint256 hashSalt;
+				        if (hashSalt == 0)
+				            hashSalt = GetRandHash();
+				        uint256 hashRand = inv.hash ^ hashSalt;
+				        hashRand = Hash(BEGIN(hashRand), END(hashRand));
+				        bool fTrickleWait = ((hashRand & 3) != 0);
 
-						        // always trickle our own transactions
-						        if (!fTrickleWait)
-						        {
-						            CWalletTx wtx;
-						            if (GetTransaction(inv.hash, wtx))
-						                if (wtx.fFromMe)
-						                    fTrickleWait = true;
-						        }
+				        // always trickle our own transactions
+				        if (!fTrickleWait)
+				        {
+				            CWalletTx wtx;
+				            if (GetTransaction(inv.hash, wtx))
+				                if (wtx.fFromMe)
+				                    fTrickleWait = true;
+				        }
 
-						        if (fTrickleWait)
-						        {
-						            vInvWait.push_back(inv);
-						            continue;
-						        }
-						    }
+				        if (fTrickleWait)
+				        {
+				            vInvWait.push_back(inv);
+				            continue;
+				        }
+				    }
 
-						    // returns true if wasn't already contained in the set
-						    if (pto->setInventoryKnown.insert(inv).second)
-						    {
-						        vInv.push_back(inv);
-						        if (vInv.size() >= 1000)
-						        {
-						            pto->PushMessage("inv", vInv);
-						            vInv.clear();
-						        }
-						    }
-						}
-						pto->vInventoryToSend = vInvWait;
-						break;
-					}
-					else
-					{
-						Sleep(20);
-						continue;
-					}
+				    // returns true if wasn't already contained in the set
+				    if (pto->setInventoryKnown.insert(inv).second)
+				    {
+				        vInv.push_back(inv);
+				        if (vInv.size() >= 1000)
+				        {
+				            pto->PushMessage("inv", vInv);
+				            vInv.clear();
+				        }
+				    }
 				}
+				pto->vInventoryToSend = vInvWait;
 			}
 		    if (!vInv.empty())
 		        pto->PushMessage("inv", vInv);
