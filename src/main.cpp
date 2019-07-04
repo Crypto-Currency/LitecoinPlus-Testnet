@@ -60,6 +60,7 @@ int64 nTimeBestReceived = 0;
 
 // by Simone, use just a single value....
 int cPeerBlockCounts = 0;
+CMedianFilter<int> cPeerBlockCountsList(5, 0); // Amount of blocks that other nodes claim to have
 
 // by Simone: output in console process block timing
 static bool blockSyncingTraceTiming = false;
@@ -1377,19 +1378,24 @@ void NetResumed()
 
 bool IsInitialBlockDownload()
 {
+// once synced, always synced
 	if (ibdLatched)
 		return false;
-	
-	// only for testnet
+
+// if the average of all peers is equal my own height, we're synced
+	if (cPeerBlockCountsList.median() == nBestHeight)
+	{
+		ibdLatched = true;
+		return false;
+	}
+
+// if in testnet, we use this to make the genesys block
 	if (fTestNet && nBestHeight == 0) {
 		return false;
 	}
-	int minTolerated;
-	if (fTestNet)
-		minTolerated = 720;
-	else
-		minTolerated = 5;
 
+// otherwise, normal time behavior
+	int minTolerated = 5;
 	bool res = (pindexBest == NULL || nBestHeight < Checkpoints::GetTotalBlocksEstimate()) || (pindexBest->GetBlockTime() < GetTime() - minTolerated * 60);
 	if (!res)
 		ibdLatched = true;
@@ -3667,7 +3673,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 		{
 			cPeerBlockCounts = pfrom->nStartingHeight; 
 		}
-
+		cPeerBlockCountsList.input(pfrom->nStartingHeight);
 
         // ppcoin: ask for pending sync-checkpoint if any
         if (!IsInitialBlockDownload())
