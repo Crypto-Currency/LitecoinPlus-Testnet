@@ -19,7 +19,7 @@ extern bool fWalletUnlockMintOnly;
 extern void updateBitcoinGUISplashMessage(char *);
 
 // by Simone: trace timing of transaction creation
-static bool walletTraceTiming = false;
+static bool walletTraceTiming = true;
 
 //////////////////////////////////////////////////////////////////////////////
 //
