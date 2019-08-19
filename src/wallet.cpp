@@ -1724,6 +1724,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 // Call after CreateTransaction unless you want to abort
 bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
 {
+	int64 nStart = GetTimeMillis();
+
     {
         LOCK2(cs_main, cs_wallet);
         printf("CommitTransaction:\n%s", wtxNew.ToString().c_str());
@@ -1733,12 +1735,24 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             // maybe makes sense; please don't do it anywhere else.
             CWalletDB* pwalletdb = fFileBacked ? new CWalletDB(strWalletFile,"r") : NULL;
 
+            if (walletTraceTiming)
+                fprintf(stderr, "CommitTransaction()/[chk 1] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+            nStart = GetTimeMillis();
+
             // Take key pair from key pool so it won't be used again
             reservekey.KeepKey();
+
+            if (walletTraceTiming)
+                fprintf(stderr, "CommitTransaction()/[chk 2] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+            nStart = GetTimeMillis();
 
             // Add tx to wallet, because if it has change it's also ours,
             // otherwise just for transaction history.
             AddToWallet(wtxNew);
+
+            if (walletTraceTiming)
+                fprintf(stderr, "CommitTransaction()/[chk 3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+            nStart = GetTimeMillis();
 
             // Mark old coins as spent
             set<CWalletTx*> setCoins;
@@ -1746,9 +1760,21 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             {
                 CWalletTx &coin = mapWallet[txin.prevout.hash];
                 coin.BindWallet(this);
+		        if (walletTraceTiming)
+		            fprintf(stderr, "CommitTransaction()/[chk 4.1] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		        nStart = GetTimeMillis();
                 coin.MarkSpent(txin.prevout.n);
+		        if (walletTraceTiming)
+		            fprintf(stderr, "CommitTransaction()/[chk 4.2] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		        nStart = GetTimeMillis();
                 coin.WriteToDisk();
+		        if (walletTraceTiming)
+		            fprintf(stderr, "CommitTransaction()/[chk 4.3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		        nStart = GetTimeMillis();
                 NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
+		        if (walletTraceTiming)
+		            fprintf(stderr, "CommitTransaction()/[chk 4.4] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+		        nStart = GetTimeMillis();
             }
 
             if (fFileBacked)
@@ -1765,7 +1791,13 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             printf("CommitTransaction() : Error: Transaction not valid");
             return false;
         }
+        if (walletTraceTiming)
+            fprintf(stderr, "CommitTransaction()/[chk 5] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+        nStart = GetTimeMillis();
         wtxNew.RelayWalletTransaction();
+        if (walletTraceTiming)
+            fprintf(stderr, "CommitTransaction()/[chk 6] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
+        nStart = GetTimeMillis();
     }
     return true;
 }
