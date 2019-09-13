@@ -1,3 +1,8 @@
+***** Version 4.0.1.2
+- Added timing for create transaction/send transaction portions of the code
+- Forward porting changes by Spidersbox on main repositoru
+
+
 ***** Version 4.0.1.1
 - Backporting important changes supposed to be for 4.1.0.1, re-listed below
 - WARNING-FIX: removed all warnings that appear with newer C++ versions (g++ 9)
