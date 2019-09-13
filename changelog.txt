@@ -1,6 +1,6 @@
 ***** Version 4.0.1.2
 - Added timing for create transaction/send transaction portions of the code
-- Forward porting changes by Spidersbox on main repositoru
+- Forward porting changes by Spidersbox on main repository, effectively fixing themes background image bug
 
 
 ***** Version 4.0.1.1
