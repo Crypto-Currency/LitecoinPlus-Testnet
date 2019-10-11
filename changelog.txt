@@ -1,3 +1,12 @@
+TODO:
+- Error when too many blocks are selected for a transaction, suggest the dusting
+- Chart to show the memory pool size (like the network chart)
+
+
+***** Version 5.0.0.1
+- Project fully ported to QT5
+
+
 ***** Version 4.0.1.2
 - Added timing for create transaction/send transaction portions of the code
 - Forward porting changes by Spidersbox on main repository, effectively fixing themes background image bug
