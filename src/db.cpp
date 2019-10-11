@@ -1145,7 +1145,8 @@ bool CBlkDB::LoadBlockIndexGuts()
 	}
 
 	// loop all data in big chunks
-	loop {
+	loop()
+	{
 
 	// get the chunk
 		if ((ret = dbcp->c_get(dbcp, &key, &data, DB_MULTIPLE_KEY | DB_NEXT)) != 0) {
@@ -1462,7 +1463,7 @@ bool CTxDB::SpliceTxIndex()
 	fFlags = DB_SET_RANGE;
 	oldProgress = -1;
 	map<unsigned long, uint256> eraseHashes;
-	loop
+	loop()
 	{
 		// Read next record
 		CDataStream ssKey(SER_DISK, CLIENT_VERSION);

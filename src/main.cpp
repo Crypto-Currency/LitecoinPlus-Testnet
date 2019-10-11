@@ -2595,7 +2595,7 @@ bool CBlock::AcceptBlock(bool lessAggressive)
 		int nBlockEstimate = Checkpoints::GetTotalBlocksEstimate();
 		if (hashBestChain == hash)
 		{
-			loop
+			loop()
 			{
 		   		{
 					// by Simone: use TRY LOCK, not a LOCK....
@@ -3020,7 +3020,7 @@ static unsigned int nCurrentBlockFile = 1;
 FILE* AppendBlockFile(unsigned int& nFileRet)
 {
     nFileRet = 0;
-    loop
+    loop()
     {
         FILE* file = OpenBlockFile(nCurrentBlockFile, 0, "ab");
         if (!file)
@@ -3724,7 +3724,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
             if (addr.nTime > nSince && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
             {
                 // Relay to a limited number of other nodes
-				loop
+				loop()
 				{
 		            {
 		                TRY_LOCK(cs_vNodes, lockNodes);
@@ -4270,7 +4270,7 @@ bool ProcessMessages(CNode* pfrom)
     //  (x) data
     //
 
-    loop
+    loop()
     {
 
         // Don't bother if send buffer is too full to respond anyway
@@ -4339,7 +4339,7 @@ bool ProcessMessages(CNode* pfrom)
         bool fRet = false;
         try
         {
-			loop
+			loop()
 			{
 		        {
 		            TRY_LOCK(cs_main, lockMain);
@@ -4510,7 +4510,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 		    //
 		    vector<CInv> vInv;
 		    vector<CInv> vInvWait;
-			loop
+			loop()
 			{
 				{
 				    TRY_LOCK(pto->cs_inventory, lockInv);
@@ -5212,7 +5212,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
         block_header res_header;
         uint256 result;
 
-        loop
+        loop()
         {
             unsigned int nHashesDone = 0;
             unsigned int nNonceFound;

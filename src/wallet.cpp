@@ -1269,7 +1269,7 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend, CW
         CTxDB txdb("r");
         {
             nFeeRet = nTransactionFee;
-            loop
+            loop()
             {
                 if (walletTraceTiming)
                     fprintf(stderr, "CreateTransaction()/[chk 1] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
@@ -1678,7 +1678,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     }
 
     int64 nMinFee = 0;
-    loop
+    loop()
     {
         // Set output amount
         if (txNew.vout.size() == 3)
