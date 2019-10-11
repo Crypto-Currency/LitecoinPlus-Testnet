@@ -26,6 +26,7 @@
 #include <string>
 #include <QMainWindow>
 #include <QDateTime>
+#include <QHeaderView>
 
 #include <QDebug>
 using namespace std;

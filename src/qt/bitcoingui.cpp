@@ -61,6 +61,7 @@
 #include <QUrl>
 #include <QStyle>
 #include <QSplashScreen>
+#include <QMimeData>
 
 #include <iostream>
 
@@ -1387,7 +1388,7 @@ void BitcoinGUI::splashMessage(const std::string &message, bool quickSleep)
 
 void BitcoinGUI::backupWallet()
 {
-    QString saveDir = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
+    QString saveDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);		// QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
     QString filename = QFileDialog::getSaveFileName(this, tr("Backup Wallet"), saveDir, tr("Wallet Data (*.dat)"));
     if(!filename.isEmpty()) {
         if(!walletModel->backupWallet(filename)) {
