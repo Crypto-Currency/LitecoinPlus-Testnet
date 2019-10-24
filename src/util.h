@@ -552,7 +552,6 @@ public:
         nSize(size)
     {
         vValues.reserve(size);
-        vValues.push_back(initial_value);
 		iniValue = initial_value;
         vSorted = vValues;
     }
@@ -582,7 +581,10 @@ public:
     T median() const
     {
         int size = vSorted.size();
-        assert(size>0);
+        if (size == 0)
+		{
+			return 0;
+		}
         if(size & 1) // Odd number of elements
         {
             return vSorted[size/2];
