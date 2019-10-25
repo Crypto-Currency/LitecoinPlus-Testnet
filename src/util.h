@@ -558,10 +558,7 @@ public:
 
     void clear()
 	{
-		for (unsigned int i = 0; i < nSize; i++)
-		{
-			vValues.push_back(iniValue);
-		}
+		vValues.clear();
         vSorted = vValues;
 	}
 

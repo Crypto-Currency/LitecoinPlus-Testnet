@@ -1377,6 +1377,7 @@ int GetNumBlocksOfPeers()
 // 2 - PC resume from sleep
 void NetResumed()
 {
+	cPeerBlockCountsList.clear();
 	ibdLatched = false;
 }
 
@@ -2327,7 +2328,6 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
     gtxdb->blkDb->WriteBlockIndexV3(CDiskBlockIndexV3(pindexNew));
 	if (!gtxdb->blkDb->TxnCommit())
 		return false;
-
 	if (blockSyncingTraceTiming && blockSyncingAddToBlockIndex)
 		fprintf(stderr, "AddToBlockIndex()/[chk 3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
     nStart = GetTimeMillis();
@@ -3347,7 +3347,9 @@ bool setOnlineStatus(bool online)
 
 				// unlatch IsInitialBlockDownload() function, otherwise when go online,
 				// it may be extremely slow, in wrong catch-up status
+				cPeerBlockCountsList.clear();
 				ibdLatched = false;
+				
 			}
 			else
 			{
