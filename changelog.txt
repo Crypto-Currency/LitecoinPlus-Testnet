@@ -6,7 +6,9 @@ TODO:
 ***** Version 5.0.0.1
 - Project fully ported to QT5
 - Remove self rescan at boot under certain conditions, not necessary anymore
-- BUGFIX: network did not sync with only two nodes, cPeerBlockCountsList declaration fix (dynamically created)
+- BUGFIX: network did not sync with only two nodes, cPeerBlockCountsList declaration fix (don't add an initial zero value)
+- BUGFIX: icon in QT when syncing, reflect the status of the IsInitialBlockDownload() function, and not another logic
+- BIGFIX: when network resume after sleep or offline, clear the cPeerBlockCountsList internal vectors
 
 
 ***** Version 4.0.1.2
