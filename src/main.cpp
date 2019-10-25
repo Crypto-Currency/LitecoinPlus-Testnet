@@ -60,7 +60,7 @@ int64 nTimeBestReceived = 0;
 
 // by Simone, use just a single value....
 int cPeerBlockCounts = 0;
-CMedianFilter<int> cPeerBlockCountsList(5, 0); // Amount of blocks that other nodes claim to have
+CMedianFilter<int> cPeerBlockCountsList(5, 0);  // Amount of blocks that other nodes claim to have
 
 // by Simone: output in console process block timing
 static bool blockSyncingTraceTiming = false;
@@ -1188,7 +1188,11 @@ int generateMTRandom(unsigned int s, int range)
     return dist(gen);
 }
 
-
+// by Simone: use a function, on testnet makes no sense to wait 217000 blocks before starting mining again
+int getPowRestartBlock()
+{
+	return fTestNet ? 21000 : POW_RESTART_BLOCK;
+}
 
 // miner's coin base reward based on nBits
 int64 GetProofOfWorkReward(int nHeight, int64 nFees, uint256 prevHash)
@@ -1202,10 +1206,10 @@ int64 GetProofOfWorkReward(int nHeight, int64 nFees, uint256 prevHash)
     }
     
     
-  if(nHeight > POW_RESTART_BLOCK)   
+  if(nHeight > getPowRestartBlock())   
   {
     nSubsidy= 2 * COIN;
-    if(nHeight > POW_RESTART_BLOCK+200000)   
+    if(nHeight > getPowRestartBlock()+200000)   
     {
       nSubsidy = 1.75 * COIN;
     }
@@ -2488,8 +2492,8 @@ bool CBlock::AcceptBlock(bool lessAggressive)
 			fprintf(stderr, "AcceptBlock()/[chk 2] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 		nStart = GetTimeMillis();
 
-		if (IsProofOfWork() && nHeight > POW_CUTOFF_BLOCK && nHeight < POW_RESTART_BLOCK)
-		  return DoS(100, error("AcceptBlock() : No PoW block allowed between %d and %d (height = %d)", POW_CUTOFF_BLOCK,POW_RESTART_BLOCK,nHeight));
+		if (IsProofOfWork() && nHeight > POW_CUTOFF_BLOCK && nHeight < getPowRestartBlock())
+		  return DoS(100, error("AcceptBlock() : No PoW block allowed between %d and %d (height = %d)", POW_CUTOFF_BLOCK,getPowRestartBlock(),nHeight));
 
 		if (blockSyncingTraceTiming && blockSyncingAcceptBlock)
 			fprintf(stderr, "AcceptBlock()/[chk 3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
@@ -3673,6 +3677,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 		{
 			cPeerBlockCounts = pfrom->nStartingHeight; 
 		}
+
 		cPeerBlockCountsList.input(pfrom->nStartingHeight);
 
         // ppcoin: ask for pending sync-checkpoint if any
