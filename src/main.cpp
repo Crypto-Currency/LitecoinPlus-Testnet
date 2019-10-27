@@ -1189,9 +1189,14 @@ int generateMTRandom(unsigned int s, int range)
 }
 
 // by Simone: use a function, on testnet makes no sense to wait 217000 blocks before starting mining again
+int powRestartBlock = 0;
 int getPowRestartBlock()
 {
-	return fTestNet ? 21000 : POW_RESTART_BLOCK;
+	if (!powRestartBlock)
+	{
+		powRestartBlock = fTestNet ? 21000 : POW_RESTART_BLOCK;
+	}
+	return powRestartBlock;
 }
 
 // miner's coin base reward based on nBits
