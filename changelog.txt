@@ -1,6 +1,8 @@
 TODO:
 - Error when too many blocks are selected for a transaction, suggest the dusting
 - Chart to show the memory pool size (like the network chart)
+- Changed the nMaxClockDrift from 2 hours to dynamically set (initial still 2 hours)
+- Check system clock at software start against a network reference, and do not start the software if the clock is too different
 
 
 ***** Version 5.0.0.1
@@ -9,6 +11,7 @@ TODO:
 - BUGFIX: network did not sync with only two nodes, cPeerBlockCountsList declaration fix (don't add an initial zero value)
 - BUGFIX: icon in QT when syncing, reflect the status of the IsInitialBlockDownload() function, and not another logic
 - BIGFIX: when network resume after sleep or offline, clear the cPeerBlockCountsList internal vectors
+- Start over command: dump the chain files and start syncing from fresh with 1 click
 
 
 ***** Version 4.0.1.2
