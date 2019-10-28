@@ -469,6 +469,8 @@ void BitcoinGUI::createActions()
     signMessageAction = new QAction(QIcon(":/icons/edit"), tr("Sign &message..."), this);
     verifyMessageAction = new QAction(QIcon(":/icons/transaction_0"), tr("&Verify message..."), this);
 
+    startOverAction = new QAction(QIcon(":/icons/repair"), tr("&Dump chain and start over..."), this);
+
     exportAction = new QAction(QIcon(":/icons/export"), tr("&Export..."), this);
     exportAction->setToolTip(tr("Export the data in the current tab to a file"));
     openRPCConsoleAction = new QAction(QIcon(":/icons/debugwindow"), tr("&Debug window"), this);
@@ -491,6 +493,8 @@ void BitcoinGUI::createActions()
     connect(changePassphraseAction, SIGNAL(triggered()), this, SLOT(changePassphrase()));
     connect(signMessageAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
     connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(gotoVerifyMessageTab()));
+
+    connect(startOverAction, SIGNAL(triggered()), this, SLOT(startOver()));
 }
 
 void BitcoinGUI::createMenuBar()
@@ -527,6 +531,8 @@ void BitcoinGUI::createMenuBar()
     wallet->addSeparator();
     wallet->addAction(signMessageAction);
     wallet->addAction(verifyMessageAction);
+    wallet->addSeparator();
+    wallet->addAction(startOverAction);
 
     QMenu *help = appMenuBar->addMenu(tr("&Help"));
     help->addAction(openRPCConsoleAction);
@@ -781,7 +787,7 @@ void BitcoinGUI::setNumBlocks(int count, int nTotalBlocks)
     }
 
     // Set icon state: spinning if catching up, tick otherwise
-    if(secs < 90*60 && count >= nTotalBlocks)
+    if(!IsInitialBlockDownload())
     {
         tooltip = tr("Up to date") + QString(".<br>") + tooltip;
         labelBlocksIcon->setPixmap(QIcon(":/icons/synced").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
@@ -1384,6 +1390,36 @@ void BitcoinGUI::splashMessage(const std::string &message, bool quickSleep)
 		Sleep(500);
 	}
   }*/
+}
+
+#include <boost/range/iterator_range.hpp>
+
+void BitcoinGUI::startOver()
+{
+	// ASK first, .......... !
+	QString strMessage = tr("The currently downloaded blockchain database files will be completely removed. <b>Are you sure you want to start over</b> ?");
+	QMessageBox::StandardButton retval = QMessageBox::question(
+	      this, tr("Dump chain and start over"), strMessage,
+	      QMessageBox::Yes|QMessageBox::Cancel, QMessageBox::Yes);
+	if (retval == QMessageBox::Cancel)
+	{
+		return;
+	}
+
+	// ASK twice, .......... !
+	strMessage = tr("ATTENTION: re-syncing the full chain will need a long time, do so only if instructed by support staff ! <b>Are you <i>absolutely</i> sure you want to start over</b> ?");
+	retval = QMessageBox::question(
+	      this, tr("Dump chain and start over"), strMessage,
+	      QMessageBox::Yes|QMessageBox::Cancel, QMessageBox::Yes);
+	if (retval == QMessageBox::Cancel)
+	{
+		return;
+	}
+
+	// set the delete flag and quit the software
+	fStartOver = true;
+	QMessageBox::warning(this, tr("Dump chain and start over"), "<b>" + tr("The wallet will now exit.") + "</b><br><br>" + tr("Please restart your wallet to start re-syncing the chain."));
+	qApp->quit();
 }
 
 void BitcoinGUI::backupWallet()
