@@ -149,6 +149,7 @@ extern bool fPrintToConsole;
 extern bool fPrintToDebugger;
 extern bool fRequestShutdown;
 extern bool fShutdown;
+extern bool fStartOver;
 extern bool fDaemon;
 extern bool fServer;
 extern bool fCommandLine;

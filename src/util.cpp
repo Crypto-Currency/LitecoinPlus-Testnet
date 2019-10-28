@@ -70,6 +70,7 @@ bool fPrintToConsole = false;
 bool fPrintToDebugger = false;
 bool fRequestShutdown = false;
 bool fShutdown = false;
+bool fStartOver = false;
 bool fDaemon = false;
 bool fServer = false;
 bool fCommandLine = false;

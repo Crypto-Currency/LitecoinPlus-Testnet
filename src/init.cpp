@@ -93,6 +93,28 @@ void Shutdown(void* parg)
         fExit = true;
 		fShutdown = false;
 
+	// by Simone: if the fStartOver flag is raised, we dump all the blockchain files securely after the database is close and detached
+		if (fStartOver)
+		{
+			boost::filesystem::path p = GetDataDir();
+			for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(p / "database"), {}))
+			{
+				boost::filesystem::remove(entry);
+			}
+			for (int i = 1; ; i++)
+			{
+				char s[64];
+				sprintf(s, "blk%04d.dat", i);
+				if (!boost::filesystem::exists(p / s))
+				{
+					break;
+				}
+				boost::filesystem::remove(p / s);
+			}
+			boost::filesystem::remove(p / "blkindex.dat");
+			boost::filesystem::remove(p / "txindex.dat");
+		}
+
 #ifndef QT_GUI
         // ensure non-UI client gets exited here, but let Bitcoin-Qt reach 'return 0;' in bitcoin.cpp
         exit(0);
