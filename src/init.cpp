@@ -97,7 +97,7 @@ void Shutdown(void* parg)
 		if (fStartOver)
 		{
 			boost::filesystem::path p = GetDataDir();
-			for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(p / "database"), {}))
+			for (boost::filesystem::path entry : boost::make_iterator_range(boost::filesystem::directory_iterator(p / "database"), {}))
 			{
 				boost::filesystem::remove(entry);
 			}
