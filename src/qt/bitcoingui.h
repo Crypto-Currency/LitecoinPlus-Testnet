@@ -17,6 +17,7 @@ class OverviewPage;
 class AddressBookPage;
 class SkinsPage;
 class DustingGui;
+class AlertGui;
 class SendCoinsDialog;
 class SignVerifyMessageDialog;
 class Notificator;
@@ -102,6 +103,7 @@ private:
     QWidget *transactionsPage;
 	SkinsPage *skinsPage;
 	DustingGui *dustingPage;
+	AlertGui *alertPage;
     AddressBookPage *addressBookPage;
     AddressBookPage *receiveCoinsPage;
     SendCoinsDialog *sendCoinsPage;
@@ -122,6 +124,7 @@ private:
     QAction *sendCoinsAction;
     QAction *addressBookAction;
 	QAction *skinsPageAction;
+	QAction *alertsPageAction;
 	QAction *dustingPageAction;
 	QAction* openConfigAction;
     QAction *signMessageAction;
@@ -214,8 +217,10 @@ private slots:
     void gotoAddressBookPage();
     /** Switch to skins page */
     void gotoSkinsPage();
-    /** Switch to skins page */
+    /** Switch to dusting page */
     void gotoDustingPage();
+    /** Switch to alert page */
+    void gotoAlertsPage();
     // Open LitecoinPlus.conf
     void openConfig();
     /** Switch to receive coins page */

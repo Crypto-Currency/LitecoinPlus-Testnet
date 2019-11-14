@@ -30,6 +30,7 @@
 #include "version.h"
 #include "skinspage.h"
 #include "dustinggui.h"
+#include "alertgui.h"
 #include "splash.h"
 #include "init.h"
 
@@ -151,6 +152,9 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     rpcConsole(0)
 {
     resize(850, 550);
+	setMinimumWidth(850);
+	setMinimumHeight(550);
+
     setWindowTitle(tr("LitecoinPlus - Wallet  ")+QString::fromStdString(CLIENT_BUILD));
 //  setStyleSheet("");
 //    statusBar()->setStyleSheet("QToolTip {background-color:rgb(255,233,142); color:black; border: 2px solid grey;}");
@@ -196,6 +200,7 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
 
 	skinsPage = new SkinsPage(this);
 	dustingPage = new DustingGui(this);
+	alertPage = new AlertGui(this);
 
     connect(skinsPage, SIGNAL(error(QString,QString,bool)), this, SLOT(error(QString,QString,bool)));
     connect(skinsPage, SIGNAL(information(QString,QString)), this, SLOT(information(QString,QString)));
@@ -209,6 +214,7 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
     centralWidget->addWidget(sendCoinsPage);
 	centralWidget->addWidget(skinsPage);
 	centralWidget->addWidget(dustingPage);
+	centralWidget->addWidget(alertPage);
     setCentralWidget(centralWidget);
 
     // Create status bar
@@ -370,19 +376,19 @@ void BitcoinGUI::createActions()
 {
     QActionGroup *tabGroup = new QActionGroup(this);
 
-    overviewAction = new QAction(QIcon(":/icons/overview"), tr("&Overview"), this);
+    overviewAction = new QAction(QIcon(":/icons/overview"), tr("&Home"), this);
     overviewAction->setToolTip(tr("Show general overview of wallet"));
     overviewAction->setCheckable(true);
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
-    sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send coins"), this);
+    sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
     sendCoinsAction->setToolTip(tr("Send coins to a LitecoinPlus address"));
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
     tabGroup->addAction(sendCoinsAction);
 
-    receiveCoinsAction = new QAction(QIcon(":/icons/receiving_addresses"), tr("&Receive coins"), this);
+    receiveCoinsAction = new QAction(QIcon(":/icons/receiving_addresses"), tr("&Receive"), this);
     receiveCoinsAction->setToolTip(tr("Show the list of addresses for receiving payments"));
     receiveCoinsAction->setCheckable(true);
     receiveCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
@@ -394,7 +400,7 @@ void BitcoinGUI::createActions()
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
 
-    addressBookAction = new QAction(QIcon(":/icons/address-book"), tr("&Address Book"), this);
+    addressBookAction = new QAction(QIcon(":/icons/address-book"), tr("&Addresses"), this);
     addressBookAction->setToolTip(tr("Edit the list of stored addresses and labels"));
     addressBookAction->setCheckable(true);
     addressBookAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
@@ -406,6 +412,12 @@ void BitcoinGUI::createActions()
     skinsPageAction->setCheckable(true);
     skinsPageAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
     tabGroup->addAction(skinsPageAction);
+
+    alertsPageAction = new QAction(QIcon(":/icons/info_log"), tr("&Events"), this);
+    alertsPageAction->setToolTip(tr("View the current messages, warnings and alerts"));
+    alertsPageAction->setCheckable(true);
+    alertsPageAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
+    tabGroup->addAction(alertsPageAction);
 
     openConfigAction = new QAction(QIcon(":/icons/edit"), tr("Open Wallet &Configuration File"), this);
     openConfigAction->setStatusTip(tr("Open wallet configuration file"));
@@ -429,9 +441,11 @@ void BitcoinGUI::createActions()
     connect(skinsPageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(skinsPageAction, SIGNAL(triggered()), this, SLOT(gotoSkinsPage()));
 
-
     connect(dustingPageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(dustingPageAction, SIGNAL(triggered()), this, SLOT(gotoDustingPage()));
+
+    connect(alertsPageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(alertsPageAction, SIGNAL(triggered()), this, SLOT(gotoAlertsPage()));
 
     quitAction = new QAction(QIcon(":/icons/quit"), tr("E&xit"), this);
     quitAction->setToolTip(tr("Quit application"));
@@ -550,11 +564,9 @@ void BitcoinGUI::createToolBars()
     toolbar->addAction(receiveCoinsAction);
     toolbar->addAction(historyAction);
     toolbar->addAction(addressBookAction);
-
-    QToolBar *toolbar2 = addToolBar(tr("Actions toolbar"));
-    toolbar2->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-	toolbar2->addAction(skinsPageAction);
-    toolbar2->addAction(dustingPageAction);
+	toolbar->addAction(skinsPageAction);
+    toolbar->addAction(dustingPageAction);
+    toolbar->addAction(alertsPageAction);
 }
 
 void BitcoinGUI::setClientModel(ClientModel *clientModel)
@@ -979,6 +991,15 @@ void BitcoinGUI::gotoDustingPage()
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
 }
 
+void BitcoinGUI::gotoAlertsPage()
+{
+    alertsPageAction->setChecked(true);
+    centralWidget->setCurrentWidget(alertPage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
 void BitcoinGUI::gotoReceiveCoinsPage()
 {
     receiveCoinsAction->setChecked(true);
@@ -1066,6 +1087,7 @@ void BitcoinGUI::setEncryptionStatus(int status)
         encryptWalletAction->setChecked(false);
         changePassphraseAction->setEnabled(false);
         encryptWalletAction->setEnabled(true);
+		unlockWalletStakeAction->setEnabled(false);
         break;
     case WalletModel::Unlocked:
         labelEncryptionIcon->show();
