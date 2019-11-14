@@ -145,6 +145,7 @@ HEADERS += src/qt/bitcoingui.h \
     src/qt/editaddressdialog.h \
     src/qt/bitcoinaddressvalidator.h \
     src/alert.h \
+    src/rules.h \
     src/addrman.h \
     src/base58.h \
     src/bignum.h \
@@ -212,7 +213,8 @@ HEADERS += src/qt/bitcoingui.h \
 	src/qt/trafficgraphwidget.h \
 	src/qt/bantablemodel.h \
 	src/qt/peertablemodel.h \
-	src/qt/dustinggui.h
+	src/qt/dustinggui.h \
+	src/qt/alertgui.h
 
 SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/qt/transactiontablemodel.cpp \
@@ -228,6 +230,7 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/qt/editaddressdialog.cpp \
     src/qt/bitcoinaddressvalidator.cpp \
     src/alert.cpp \
+    src/rules.cpp \
     src/version.cpp \
     src/sync.cpp \
     src/util.cpp \
@@ -285,7 +288,8 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
 	src/qt/trafficgraphwidget.cpp \
 	src/qt/bantablemodel.cpp \
 	src/qt/peertablemodel.cpp \
-	src/qt/dustinggui.cpp
+	src/qt/dustinggui.cpp \
+	src/qt/alertgui.cpp
 
 
 RESOURCES += \
@@ -300,6 +304,7 @@ FORMS += \
     src/qt/forms/splash.ui \
 	src/qt/forms/skinspage.ui \
 	src/qt/forms/dustinggui.ui \
+	src/qt/forms/alertgui.ui \
     src/qt/forms/editaddressdialog.ui \
     src/qt/forms/transactiondescdialog.ui \
     src/qt/forms/overviewpage.ui \

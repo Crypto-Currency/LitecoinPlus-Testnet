@@ -5,21 +5,32 @@ TODO:
 - Check system clock at software start against a network reference, and do not start the software if the clock is too different
 
 
-***** Version 5.0.0.1
-- Project fully ported to QT5
+***** Version 5.0.0.1 (RELEASE)
+- Project is now fully ported to QT5
 - Remove self rescan at boot under certain conditions, not necessary anymore
 - BUGFIX: network did not sync with only two nodes, cPeerBlockCountsList declaration fix (don't add an initial zero value)
-- BUGFIX: icon in QT when syncing, reflect the status of the IsInitialBlockDownload() function, and not another logic
-- BIGFIX: when network resume after sleep or offline, clear the cPeerBlockCountsList internal vectors
+- BUGFIX: when network resume after sleep or offline, clear the cPeerBlockCountsList internal vectors (BUG introduced by the above BUGFIX)
+- BUGFIX: icon in QT when syncing, reflect the status of the IsInitialBlockDownload() function, and not another different logic
 - Start over command: dump the chain files and start syncing from fresh with 1 click
+- Now possible to disable system notification by a setting in Options dialog (cannot suppress critical notifications, only informational and warning)
+- BUGFIX: listreceivedbyaddress RPC call, now accepts 3 parameters correctly (at least one exchange uses the call)
+- BUGFIX: on QT5, autocompleter was not automatically hidden when pressing enter to execute the RPC command
+- Added listalerts, sendrule, listrules RPC calls, to handle rule sending from any node (with the alert private key)
+- BUGFIX: revisited toolbars, button names, positioning and made space for one more page: Log
+- Adding Events tab, to display active alerts, information, warnings and critical messages in clear
+- BUGFIX: if the wallet is not encrypted, make no sense to have the "Unlock to stake" menu command enabled...
+- Display a message when dameon is attempting to connect to RPC but the wallet is still loading the blockchain
+- BUGFIX: changed all references to "bicoin-xxx" thread names into "litecoinplus-xxx" names
+- Pre-programmed a series of rules in the code for first release of PALADIN:
+	-	
 
 
-***** Version 4.0.1.2
+***** Version 4.0.1.2 (TESTNET)
 - Added timing for create transaction/send transaction portions of the code
 - Forward porting changes by Spidersbox on main repository, effectively fixing themes background image bug
 
 
-***** Version 4.0.1.1
+***** Version 4.0.1.1 (TESTNET)
 - Backporting important changes supposed to be for 4.1.0.1, re-listed below
 - WARNING-FIX: removed all warnings that appear with newer C++ versions (g++ 9)
 - Removing Loading Pairs / Calculating Stake Modifier step, save data in index instead (V3)
