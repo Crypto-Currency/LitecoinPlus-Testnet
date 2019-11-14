@@ -1659,3 +1659,106 @@ bool CAddrDB::Read(CAddrMan& addr)
     return true;
 }
 
+//
+// CRulesDB
+//
+
+
+CRulesDB::CRulesDB()
+{
+    pathAddr = GetDataDir() / "rules.dat";
+}
+
+bool CRulesDB::Write(CDiskRules& dr)
+{
+    // Generate random temporary filename
+    unsigned short randv = 0;
+    RAND_bytes((unsigned char *)&randv, sizeof(randv));
+    std::string tmpfn = strprintf("rules.dat.%04x", randv);
+
+    // serialize addresses, checksum data up to that point, then append csum
+    CDataStream ssRules(SER_DISK, CLIENT_VERSION);
+    ssRules << FLATDATA(pchMessageStart);
+    ssRules << dr;
+    uint256 hash = Hash(ssRules.begin(), ssRules.end());
+    ssRules << hash;
+
+    // open temp output file, and associate with CAutoFile
+    boost::filesystem::path pathTmp = GetDataDir() / tmpfn;
+    FILE *file = fopen(pathTmp.string().c_str(), "wb");
+    CAutoFile fileout = CAutoFile(file, SER_DISK, CLIENT_VERSION);
+    if (!fileout)
+        return error("CDiskRules::Write() : open failed");
+
+    // Write and commit header, data
+    try {
+        fileout << ssRules;
+    }
+    catch (std::exception &e) {
+        return error("CDiskRules::Write() : I/O error");
+    }
+    FileCommit(fileout);
+    fileout.fclose();
+
+    // replace existing peers.dat, if any, with new peers.dat.XXXX
+    if (!RenameOver(pathTmp, pathAddr))
+        return error("CDiskRules::Write() : Rename-into-place failed");
+
+    return true;
+}
+
+bool CRulesDB::Read(CDiskRules& dr)
+{
+	// if file doesn't exist, just ignore it, it is not mandatory to have rules
+	if (!boost::filesystem::exists(pathAddr))
+		return true;
+
+    // open input file, and associate with CAutoFile
+    FILE *file = fopen(pathAddr.string().c_str(), "rb");
+    CAutoFile filein = CAutoFile(file, SER_DISK, CLIENT_VERSION);
+    if (!filein)
+        return error("CDiskRules::Read() : open failed");
+
+    // use file size to size memory buffer
+    int fileSize = GetFilesize(filein);
+    int dataSize = fileSize - sizeof(uint256);
+    vector<unsigned char> vchData;
+    vchData.resize(dataSize);
+    uint256 hashIn;
+
+    // read data and checksum from file
+    try {
+        filein.read((char *)&vchData[0], dataSize);
+        filein >> hashIn;
+    }
+    catch (std::exception &e) {
+        return error("CDiskRules::Read() 2 : I/O error or stream data corrupted");
+    }
+    filein.fclose();
+
+    CDataStream ssRules(vchData, SER_DISK, CLIENT_VERSION);
+
+    // verify stored checksum matches input data
+    uint256 hashTmp = Hash(ssRules.begin(), ssRules.end());
+    if (hashIn != hashTmp)
+        return error("CDiskRules::Read() : checksum mismatch; data corrupted");
+
+    unsigned char pchMsgTmp[4];
+    try {
+        // de-serialize file header (pchMessageStart magic number) and
+        ssRules >> FLATDATA(pchMsgTmp);
+
+        // verify the network matches ours
+        if (memcmp(pchMsgTmp, pchMessageStart, sizeof(pchMsgTmp)))
+            return error("CDiskRules::Read() : invalid network magic number");
+
+        // de-serialize address data into one CAddrMan object
+        ssRules >> dr;
+    }
+    catch (std::exception &e) {
+        return error("CDiskRules::Read() : I/O error or stream data corrupted");
+    }
+
+    return true;
+}
+

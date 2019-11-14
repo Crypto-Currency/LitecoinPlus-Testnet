@@ -55,7 +55,14 @@ static const int fHaveUPnP = false;
 static const uint256 hashGenesisBlockOfficial("0x000007ca97a92891d88e204cfe475193c9e68fa80d94b97796ba9bcd15e3301c");
 static const uint256 hashGenesisBlockTestNet ("0x000007ca97a92891d88e204cfe475193c9e68fa80d94b97796ba9bcd15e3301c");
 
-static const int64 nMaxClockDrift = 2 * 60 * 60;        // two hours
+// by Simone: new variables that are dynamicized with PALADIN system
+extern int nPaladinRuleHeight;
+extern bool nPowSuspended;
+extern int64 nMaxClockDrift;
+extern int64 nMintProofOfStake;
+extern int64 nPowReward;
+extern unsigned int nStakeTargetSpacing;
+extern bool nPaladinOnlyClients;
 
 extern CScript COINBASE_FLAGS;
 

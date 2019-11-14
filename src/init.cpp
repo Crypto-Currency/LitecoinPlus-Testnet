@@ -792,6 +792,10 @@ bool AppInit2()
         return InitError(msg);
     }
 
+	// by Simone: start RPC server before loading the blockchain
+	if (fServer)
+		NewThread(ThreadRPCServer, NULL);
+
     if (GetBoolArg("-loadblockindextest"))
     {
         CTxDB txdb("r");
@@ -799,6 +803,13 @@ bool AppInit2()
         PrintBlockTree();
         return false;
     }
+
+	// by Simone: load rules here, exit on failure
+    uiInterface.InitMessage(_("Loading PALADIN rules..."));
+	CDiskRules rules;
+	CRulesDB rdb;
+	if (!rdb.Read(rules))
+		return InitError(_("Error loading PALADIN rules"));
 
     uiInterface.InitMessage(_("Loading block index..."));
     printf("Loading block index...\n");
@@ -1023,11 +1034,11 @@ bool AppInit2()
     printf("mapWallet.size() = %" PRIszu "\n",       pwalletMain->mapWallet.size());
     printf("mapAddressBook.size() = %" PRIszu "\n",  pwalletMain->mapAddressBook.size());
 
-    if (!NewThread(StartNode, NULL))
-        InitError(_("Error: could not start node"));
+	if (!NewThread(StartNode, NULL))
+		InitError(_("Error: could not start node"));
 
-    if (fServer)
-        NewThread(ThreadRPCServer, NULL);
+	// by Simone: starting the RPC thread was here, instead we just unleash it
+	enableRpcExecution = true;
 
     // ********************************************************* Step 12: finished
 

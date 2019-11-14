@@ -21,6 +21,9 @@ extern void updateBitcoinGUISplashMessage(char *);
 // by Simone: trace timing of transaction creation
 static bool walletTraceTiming = false;
 
+// by Simone: suspend all sending, emergency flag
+bool nSendSuspended = false;
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // mapWallet
@@ -1847,6 +1850,8 @@ string CWallet::SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew,
 string CWallet::SendMoneyToDestination(const CTxDestination& address, int64 nValue, CWalletTx& wtxNew, bool fAskFee)
 {
     // Check amount
+    if (nSendSuspended)
+        return _("Sending has been temporary suspended across entire network");
     if (nValue <= 0)
         return _("Invalid amount");
     if (nValue + nTransactionFee > GetBalance())

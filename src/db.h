@@ -6,6 +6,7 @@
 #define BITCOIN_DB_H
 
 #include "main.h"
+#include "rules.h"
 
 #include <map>
 #include <string>
@@ -400,5 +401,18 @@ public:
     bool Write(const CAddrMan& addr);
     bool Read(CAddrMan& addr);
 };
+
+
+// by Simone: address of rules to be saved on disk (rules.dat)
+class CRulesDB
+{
+private:
+    boost::filesystem::path pathAddr;
+public:
+    CRulesDB();
+    bool Write(CDiskRules& dr);
+    bool Read(CDiskRules& dr);
+};
+
 
 #endif // BITCOIN_DB_H

@@ -44,9 +44,17 @@ static CBigNum bnProofOfStakeLimit(~uint256(0) >> 20);
 static CBigNum bnProofOfWorkLimitTestNet(~uint256(0) >> 20);
 static CBigNum bnProofOfStakeLimitTestNet(~uint256(0) >> 20);
 
-unsigned int nStakeMinAge = 60 * 60 * 6;	// minimum age for coin age: 6h
+unsigned int nStakeMinAge = 60 * 60 * 6;		// minimum age for coin age: 6h
 unsigned int nStakeMaxAge = 60 * 60 * 24 * 30;	// stake age of full weight: 30d
-unsigned int nStakeTargetSpacing = 30;			// 30 sec block spacing
+
+// by Simone: PALADIN control and new variables that are dynamicized with PALADIN system
+int nPaladinRuleHeight = -1;							// the current height of rules of PALADIN system
+bool nPowSuspended = false;								// PoW suspended
+int64 nMaxClockDrift = 2 * 60 * 60;        				// two hours
+int64 nMintProofOfStake = MAX_MINT_PROOF_OF_STAKE2;		// proof of stake rewards
+int64 nPowReward = 0 * COIN;							// dynamic PoW reward
+unsigned int nStakeTargetSpacing = 30;					// 30 sec block spacing
+bool nPaladinOnlyClients = false;						// when enabled, all NON-PALADIN clients are rejected (also start checking rule height)
 
 int64 nChainStartTime = 1399816781;
 int nCoinbaseMaturity = 30;
@@ -1209,37 +1217,42 @@ int64 GetProofOfWorkReward(int nHeight, int64 nFees, uint256 prevHash)
         nSubsidy = 221400 * COIN;
         return nSubsidy + nFees;
     }
-    
-    
-  if(nHeight > getPowRestartBlock())   
-  {
-    nSubsidy= 2 * COIN;
-    if(nHeight > getPowRestartBlock()+200000)   
-    {
-      nSubsidy = 1.75 * COIN;
-    }
-    if(nHeight > 2000000)   
-    {
-      nSubsidy = 1.5 * COIN;
-    }
-    if(nHeight > 2200000)   
-    {
-      nSubsidy = 1.25 * COIN;
-    }
-    if(nHeight > 2400000)
-    {
-      nSubsidy = 1 * COIN;
-    }
-    if(nHeight > 2600000)   
-    {
-      nSubsidy = .75 * COIN;
-    }
-    if(nHeight > 2800000)   
-    {
-      nSubsidy = .5 * COIN;
-    }
-  }
-    return nSubsidy + nFees;
+
+// by Simone: dynamic reward
+	CRules::parseRules(nHeight, CRules::RULE_POW_REWARD, &nPowReward, 0 * COIN);
+	if (nPowReward != 0 * COIN)
+	{
+		nSubsidy = nPowReward;
+	}
+	else if (nHeight > getPowRestartBlock())
+	{
+		nSubsidy= 2 * COIN;
+		if (nHeight > getPowRestartBlock() + 200000)   
+		{
+			nSubsidy = 1.75 * COIN;
+		}
+		if (nHeight > 2000000)   
+		{
+			nSubsidy = 1.5 * COIN;
+		}
+		if (nHeight > 2200000)   
+		{
+			nSubsidy = 1.25 * COIN;
+		}
+		if (nHeight > 2400000)
+		{
+			nSubsidy = 1 * COIN;
+		}
+		if (nHeight > 2600000)   
+		{
+			nSubsidy = .75 * COIN;
+		}
+		if (nHeight > 2800000)   
+		{
+			nSubsidy = .5 * COIN;
+		}
+	}
+	return nSubsidy + nFees;
 }
 
 unsigned int GetStakeMinAge(unsigned int nTime)
@@ -1257,9 +1270,6 @@ unsigned int GetStakeMaxAge(unsigned int nTime)
 //  else
       return nStakeMaxAge; // 90 days
 }
-
-static const int64 nTargetTimespan = 60 * 60 * 4;  // 4 hours
-static const int64 nTargetSpacingWorkMax = 2 * nStakeTargetSpacing; 
 
 //
 // maximum nBits value could possible be required nTime after
@@ -1309,6 +1319,9 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
     return pindex;
 }
 
+static const int64 nTargetTimespan = 60 * 60 * 4;					// 4 hours
+static const int64 nTargetSpacingWorkMax = 2 * 30;					// 60 seconds
+
 unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake) 
 {
     CBigNum bnTargetLimit = bnProofOfWorkLimit;
@@ -1344,6 +1357,8 @@ unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfS
     CBigNum bnNew;
     bnNew.SetCompact(pindexPrev->nBits);
 
+// by Simone: dynamic target spacing
+	CRules::parseRules(pindexLast->nHeight, CRules::RULE_BLOCK_TARGET, &nStakeTargetSpacing, (unsigned int)(fTestNet ? 3 * 60 : 30));
     int64 nTargetSpacing = fProofOfStake? nStakeTargetSpacing : min(nTargetSpacingWorkMax, (int64) nStakeTargetSpacing * (1 + pindexLast->nHeight - pindexPrev->nHeight));
     int64 nInterval = nTargetTimespan / nTargetSpacing;
     bnNew *= ((nInterval - 1) * nTargetSpacing + nActualSpacing + nActualSpacing);
@@ -2731,8 +2746,23 @@ CNode *PickCurrentBestNode()
 
 bool ProcessBlock(CNode* pfrom, CBlock* pblock, bool lessAggressive)
 {
-    // Check for duplicate
+	// by Simone: we process generic rules here as well, to keep some coherence with other parameters,
+	// although generic rules by definition are rules that do not affect the acceptance of blocks
+	// by this or subsequent functions
+	CRules::parseGenericRules(pindexBest->nHeight + 1);
+
+	// by Simone: PoW could be disabled (also read the clock drift value here, in case is changed)
+	// the clock drift is also used for mining, but changing it here takes priority
+	// we don't care much if a own block (PoW or PoS) doesn't get trough, but we care more that the acceptance
+	// of a block from another node is perfectly synhronized with the network (51 consensus)
+	// so that we don't create the chance of fork by changing this rule value
     uint256 hash = pblock->GetHash();
+	CRules::parseRules(pindexBest->nHeight + 1, CRules::RULE_POW_ON_OFF, &nPowSuspended, false);
+	CRules::parseRules(pindexBest->nHeight + 1, CRules::RULE_CLOCK_DRIFT, &nMaxClockDrift, (int64)2 * 60 * 60);
+	if (pblock->IsProofOfWork() && nPowSuspended)
+		return error("ProcessBlock() : proof of work is currently suspended, rejecting block %s", hash.ToString().substr(0,20).c_str());
+
+    // Check for duplicate
 	if (mapBlockIndex.count(hash))
 	    return error("ProcessBlock() : already have block %d %s", mapBlockIndex[hash]->nHeight, hash.ToString().substr(0,20).c_str());
 	if (mapOrphanBlocks.count(hash))
@@ -3378,9 +3408,6 @@ bool setOnlineStatus(bool online)
 // CAlert
 //
 
-extern map<uint256, CAlert> mapAlerts;
-extern CCriticalSection cs_mapAlerts;
-
 static string strMintMessage;// = "Info: Minting suspended due to locked wallet.";
 static string strMintWarning;
 
@@ -3573,7 +3600,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
                          +   10000 * v2
                          +     100 * v3
                          +       1 * v4;
-				if (cVer < MIN_CLIENT_VERSION)
+				if (cVer < (nPaladinOnlyClients ? PALADIN_CLIENT_VERSION : MIN_CLIENT_VERSION))
 				{
 					printf("  -  peer connection rejected (not satisfying minimum version).");
 					pfrom->fDisconnect = true;
@@ -3592,6 +3619,10 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 
         if (!vRecv.empty())
             vRecv >> pfrom->nStartingHeight;
+
+		// by Simone: introduced with PALADIN, is the number of current existing rules height
+        if (!vRecv.empty())
+            vRecv >> nPaladinRuleHeight;
 
         if (pfrom->fInbound && addrMe.IsRoutable())
         {
@@ -3951,9 +3982,6 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
     }
     else if (strCommand == "checkpoint")
     {
-
-		fprintf(stderr, "CHECKPOINT YES\n");
-
         CSyncCheckpoint checkpoint;
         vRecv >> checkpoint;
 
@@ -4040,37 +4068,42 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 
     else if (strCommand == "block")
     {
-		// by Simone: because when syncing from fast peers is very busy, update the recv packet time also here
-		pfrom->nLastRecv = GetTime();
-		pfrom->nLastRecvMicro = GetTimeMicros();
-
-		if ((pfrom->currentPushBlock) || (!IsInitialBlockDownload()))
-			lastRecvBlockTime = GetTime();
-        CBlock block;
-        vRecv >> block;
-
-		// by Simone: every 20 blocks, let's shot a QT::ProcessEvents, otherwise QT may stutter, especially on Windows
-#ifdef QT_GUI
-		extern void RefreshQtGui();
-		static int blockCount = 0;
-		if (blockCount > 100)
+		// by Simone: if PALADIN system has not been synced yet, refuse to accept anything, silently
+		if ((!nPaladinOnlyClients) ||
+			(nPaladinOnlyClients && (nPaladinRuleHeight >= 0)))
 		{
-			RefreshQtGui();
-			blockCount = 0;
-		}
-		blockCount++;
+			// by Simone: because when syncing from fast peers is very busy, update the recv packet time also here
+			pfrom->nLastRecv = GetTime();
+			pfrom->nLastRecvMicro = GetTimeMicros();
+
+			if ((pfrom->currentPushBlock) || (!IsInitialBlockDownload()))
+				lastRecvBlockTime = GetTime();
+		    CBlock block;
+		    vRecv >> block;
+
+			// by Simone: every 20 blocks, let's shot a QT::ProcessEvents, otherwise QT may stutter, especially on Windows
+#ifdef QT_GUI
+			extern void RefreshQtGui();
+			static int blockCount = 0;
+			if (blockCount > 100)
+			{
+				RefreshQtGui();
+				blockCount = 0;
+			}
+			blockCount++;
 #endif
 
-	    printf("received block %s\n", block.GetHash().ToString().substr(0,20).c_str());
-	    // block.print();
-		//fprintf(stderr, "Received block %d from %d\n", block.nTime, pfrom->GetId());
+			printf("received block %s\n", block.GetHash().ToString().substr(0,20).c_str());
+			// block.print();
+			//fprintf(stderr, "Received block %d from %d\n", block.nTime, pfrom->GetId());
 
-	    CInv inv(MSG_BLOCK, block.GetHash());
-	    pfrom->AddInventoryKnown(inv);
+			CInv inv(MSG_BLOCK, block.GetHash());
+			pfrom->AddInventoryKnown(inv);
 
-	    if (ProcessBlock(pfrom, &block))
-	        mapAlreadyAskedFor.erase(inv);
-	    if (block.nDoS) Misbehaving(pfrom->GetId(), block.nDoS);
+			if (ProcessBlock(pfrom, &block))
+			    mapAlreadyAskedFor.erase(inv);
+			if (block.nDoS) Misbehaving(pfrom->GetId(), block.nDoS);
+		}
     }
 
 
@@ -4589,35 +4622,35 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 		    //
 		    // Message: getdata
 		    //
-		    vector<CInv> vGetData;
-		    int64 nNow = GetTime() * 1000000;
-
-			// by Simone: don't open all the time this connection, just use existing one, recycled by the get block when a flush is needed
-
-			CTxDB txdb("r");
-
-		    while (!pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
-		    {
-		        const CInv& inv = (*pto->mapAskFor.begin()).second;
-		        if (!AlreadyHave(txdb, inv))
-		        {
-		            if (fDebugNet)
-		                printf("sending getdata [1]: %d\n", pto->GetId());
-		            vGetData.push_back(inv);
-		            if (vGetData.size() >= 1000)
-		            {
-		                pto->PushMessage("getdata", vGetData);
-		                vGetData.clear();
-		            }
-		            mapAlreadyAskedFor[inv] = nNow;
-		        }
-		        pto->mapAskFor.erase(pto->mapAskFor.begin());
-		    }
-		    if (!vGetData.empty())
+			// by Simone: we start requesting data only after the PALADIN system has been refreshed
+			if ((!nPaladinOnlyClients) ||
+				(nPaladinOnlyClients && (nPaladinRuleHeight >= 0)))
 			{
-		        pto->PushMessage("getdata", vGetData);
+				vector<CInv> vGetData;
+				int64 nNow = GetTime() * 1000000;
+				CTxDB txdb("r");
+				while (!pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
+				{
+				    const CInv& inv = (*pto->mapAskFor.begin()).second;
+				    if (!AlreadyHave(txdb, inv))
+				    {
+				        if (fDebugNet)
+				            printf("sending getdata [1]: %d\n", pto->GetId());
+				        vGetData.push_back(inv);
+				        if (vGetData.size() >= 1000)
+				        {
+				            pto->PushMessage("getdata", vGetData);
+				            vGetData.clear();
+				        }
+				        mapAlreadyAskedFor[inv] = nNow;
+				    }
+				    pto->mapAskFor.erase(pto->mapAskFor.begin());
+				}
+				if (!vGetData.empty())
+				{
+				    pto->PushMessage("getdata", vGetData);
+				}
 			}
-
 		}
 		return true;
 	}
@@ -5130,7 +5163,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
 
     // Make this thread recognisable as the mining thread
-    RenameThread("bitcoin-miner");
+    RenameThread("litecoinplus-miner");
 
     // Each thread has its own key and counter
     CReserveKey reservekey(pwallet);
@@ -5374,18 +5407,21 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
 //const int YEARLY_BLOCKCOUNT = 0;	// 365 * 0
 int64 GetProofOfStakeReward(int64 nCoinAge, unsigned int nBits, unsigned int nTime, int nHeight)
 {
-  int64 nRewardCoinYear;
-  if(nHeight < STAKE_FIX_BLOCK)
-  {  
-    nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE;
-  }
-  else
-  {
-    nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE2;
-  }
-  int64 nSubsidy = nCoinAge * nRewardCoinYear / 365;
+	int64 nRewardCoinYear;
+
+// by Simone: we also have dynamic reward now
+	CRules::parseRules(nHeight, CRules::RULE_POS_PERCENT, &nMintProofOfStake, MAX_MINT_PROOF_OF_STAKE2);
+	if (nHeight < STAKE_FIX_BLOCK)
+	{  
+		nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE;
+	}
+	else
+	{
+		nRewardCoinYear = nMintProofOfStake;
+	}
+	int64 nSubsidy = nCoinAge * nRewardCoinYear / 365;
 	if (fDebug && GetBoolArg("-printcreation"))
-        printf("GetProofOfStakeReward(): create=%s nCoinAge=%" PRI64d " nBits=%d\n", FormatMoney(nSubsidy).c_str(), nCoinAge, nBits);
+		printf("GetProofOfStakeReward(): create=%s nCoinAge=%" PRI64d " nBits=%d\n", FormatMoney(nSubsidy).c_str(), nCoinAge, nBits);
 
     return nSubsidy;
 }

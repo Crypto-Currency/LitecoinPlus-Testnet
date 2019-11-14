@@ -33,6 +33,9 @@ using namespace boost;
 using namespace boost::asio;
 using namespace json_spirit;
 
+// by Simone: we enable execution after everything started
+bool enableRpcExecution = false;
+
 void ThreadRPCServer2(void* parg);
 
 static std::string strRPCUserColonPass;
@@ -269,6 +272,10 @@ static const CRPCCommand vRPCCommands[] =
     { "resendtx",               &resendtx,               false,  true},
     { "makekeypair",            &makekeypair,            false,  true},
     { "sendalert",              &sendalert,              false,  false},
+    { "sendrule",               &sendrule,               false,  false},
+    { "listrules",              &listrules,              false,  false},
+    { "testrule",               &testrule,               false,  false},
+    { "listalerts",             &listalerts,             false,  false},
 };
 
 CRPCTable::CRPCTable()
@@ -644,7 +651,7 @@ private:
 void ThreadRPCServer(void* parg)
 {
     // Make this thread recognisable as the RPC listener
-    RenameThread("bitcoin-rpclist");
+    RenameThread("litecoinplus-rpclist");
 
     try
     {
@@ -956,7 +963,7 @@ static CCriticalSection cs_THREAD_RPCHANDLER;
 void ThreadRPCServer3(void* parg)
 {
     // Make this thread recognisable as the RPC handler
-    RenameThread("bitcoin-rpchand");
+    RenameThread("litecoinplus-rpchand");
 
     {
         LOCK(cs_THREAD_RPCHANDLER);
@@ -1051,6 +1058,10 @@ void ThreadRPCServer3(void* parg)
 
 json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_spirit::Array &params) const
 {
+	// by Simone: check if is enabled
+	if (!enableRpcExecution)
+        throw JSONRPCError(RPC_MISC_ERROR, "Wallet is loading the blockchain, please wait");
+
     // Find method
     const CRPCCommand *pcmd = tableRPC[strMethod];
     if (!pcmd)
@@ -1223,6 +1234,9 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "sendalert"              && n > 4) ConvertTo<boost::int64_t>(params[4]);
     if (strMethod == "sendalert"              && n > 5) ConvertTo<boost::int64_t>(params[5]);
     if (strMethod == "sendalert"              && n > 6) ConvertTo<boost::int64_t>(params[6]);
+    if (strMethod == "sendrule"               && n > 1) ConvertTo<boost::int64_t>(params[1]);
+    if (strMethod == "testrule"               && n > 0) ConvertTo<boost::int64_t>(params[0]);
+    if (strMethod == "testrule"               && n > 1) ConvertTo<boost::int64_t>(params[1]);
 
     return params;
 }

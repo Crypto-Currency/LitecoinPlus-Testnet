@@ -568,7 +568,7 @@ DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, vector<CWalletTx>& vWtx)
 void ThreadFlushWalletDB(void* parg)
 {
     // Make this thread recognisable as the wallet flushing thread
-    RenameThread("bitcoin-wallet");
+    RenameThread("litecoinplus-wallet");
 
     const string& strFile = ((const string*)parg)[0];
     static bool fOneThread;
