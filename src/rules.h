@@ -48,6 +48,7 @@ public:
 		RULE_BLOCK_TARGET = 5,			// adjust the block target, in s
 		RULE_DISABLE_OLD_CLIENTS = 6,	// only accept clients >= 5.0.0.1
 		RULE_SUSPEND_SENDING = 7,		// refuse to send coins, globally
+        RULE_POS_ON_OFF = 8,			// PoS ON/OFF flag
     };
 
 	// creator

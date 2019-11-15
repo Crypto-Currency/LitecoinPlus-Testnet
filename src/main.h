@@ -58,6 +58,7 @@ static const uint256 hashGenesisBlockTestNet ("0x000007ca97a92891d88e204cfe47519
 // by Simone: new variables that are dynamicized with PALADIN system
 extern int nPaladinRuleHeight;
 extern bool nPowSuspended;
+extern bool nPosSuspended;
 extern int64 nMaxClockDrift;
 extern int64 nMintProofOfStake;
 extern int64 nPowReward;

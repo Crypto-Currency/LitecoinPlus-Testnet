@@ -50,6 +50,7 @@ unsigned int nStakeMaxAge = 60 * 60 * 24 * 30;	// stake age of full weight: 30d
 // by Simone: PALADIN control and new variables that are dynamicized with PALADIN system
 int nPaladinRuleHeight = -1;							// the current height of rules of PALADIN system
 bool nPowSuspended = false;								// PoW suspended
+bool nPosSuspended = false;								// PoS suspended
 int64 nMaxClockDrift = 2 * 60 * 60;        				// two hours
 int64 nMintProofOfStake = MAX_MINT_PROOF_OF_STAKE2;		// proof of stake rewards
 int64 nPowReward = 0 * COIN;							// dynamic PoW reward
@@ -2758,9 +2759,13 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock, bool lessAggressive)
 	// so that we don't create the chance of fork by changing this rule value
     uint256 hash = pblock->GetHash();
 	CRules::parseRules(pindexBest->nHeight + 1, CRules::RULE_POW_ON_OFF, &nPowSuspended, false);
+	CRules::parseRules(pindexBest->nHeight + 1, CRules::RULE_POS_ON_OFF, &nPosSuspended, false);
 	CRules::parseRules(pindexBest->nHeight + 1, CRules::RULE_CLOCK_DRIFT, &nMaxClockDrift, (int64)2 * 60 * 60);
 	if (pblock->IsProofOfWork() && nPowSuspended)
 		return error("ProcessBlock() : proof of work is currently suspended, rejecting block %s", hash.ToString().substr(0,20).c_str());
+
+	if (pblock->IsProofOfStake() && nPosSuspended)
+		return error("ProcessBlock() : proof of stake is currently suspended, rejecting block %s", hash.ToString().substr(0,20).c_str());
 
     // Check for duplicate
 	if (mapBlockIndex.count(hash))
