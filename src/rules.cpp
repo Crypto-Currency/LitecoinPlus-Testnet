@@ -117,6 +117,14 @@ bool CRules::insert(const CAlert& alert)
 	return true;
 }
 
+int CRules::getCurrentRulesHeight()
+{
+    {
+        LOCK(cs_mapRules);
+		return mapRules.size();
+	}
+}
+
 CRules* CRules::getRule(int nHeight, ruleTypes rType)
 {
 	CRules *retRule = NULL;

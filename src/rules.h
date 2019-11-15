@@ -84,6 +84,7 @@ public:
 	static bool insert(const CAlert& alert);
 	static CRules* getRule(int nHeight, ruleTypes rType);
 	static void parseGenericRules(int nHeight);
+	static int getCurrentRulesHeight();
 };
 
 class CDiskRules

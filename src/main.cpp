@@ -70,6 +70,7 @@ int64 nTimeBestReceived = 0;
 // by Simone, use just a single value....
 int cPeerBlockCounts = 0;
 CMedianFilter<int> cPeerBlockCountsList(5, 0);  // Amount of blocks that other nodes claim to have
+CMedianFilter<int> cPeerRuleCountsList(5, 0);	// Amount of rules that other nodes claim to have
 
 // by Simone: output in console process block timing
 static bool blockSyncingTraceTiming = false;
@@ -192,6 +193,7 @@ int nPreferredDownload = 0;
 
 // by Simone: latched status for the IsInitialBlockDownload() function
 bool ibdLatched = false;
+bool irdLatched = false;
 extern void NetResumed();
 
 // Requires cs_main.
@@ -1399,7 +1401,9 @@ int GetNumBlocksOfPeers()
 void NetResumed()
 {
 	cPeerBlockCountsList.clear();
+	cPeerRuleCountsList.clear();
 	ibdLatched = false;
+	irdLatched = false;
 }
 
 bool IsInitialBlockDownload()
@@ -1426,6 +1430,21 @@ bool IsInitialBlockDownload()
 	if (!res)
 		ibdLatched = true;
 	return (res);
+}
+
+bool IsInitialRuleDownload()
+{
+// once synced, always synced
+	if (irdLatched)
+		return false;
+
+// if the average of all peers is equal my own height, we're synced
+	if (cPeerRuleCountsList.median() == nPaladinRuleHeight)
+	{
+		irdLatched = true;
+		return false;
+	}
+	return true;
 }
 
 void static InvalidChainFound(CBlockIndex* pindexNew)
@@ -3627,7 +3646,10 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 
 		// by Simone: introduced with PALADIN, is the number of current existing rules height
         if (!vRecv.empty())
+		{
             vRecv >> nPaladinRuleHeight;
+			cPeerRuleCountsList.input(nPaladinRuleHeight);
+		}
 
         if (pfrom->fInbound && addrMe.IsRoutable())
         {
@@ -4075,7 +4097,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
     {
 		// by Simone: if PALADIN system has not been synced yet, refuse to accept anything, silently
 		if ((!nPaladinOnlyClients) ||
-			(nPaladinOnlyClients && (nPaladinRuleHeight >= 0)))
+			(nPaladinOnlyClients && IsInitialRuleDownload()))
 		{
 			// by Simone: because when syncing from fast peers is very busy, update the recv packet time also here
 			pfrom->nLastRecv = GetTime();
@@ -4629,7 +4651,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 		    //
 			// by Simone: we start requesting data only after the PALADIN system has been refreshed
 			if ((!nPaladinOnlyClients) ||
-				(nPaladinOnlyClients && (nPaladinRuleHeight >= 0)))
+				(nPaladinOnlyClients && IsInitialRuleDownload()))
 			{
 				vector<CInv> vGetData;
 				int64 nNow = GetTime() * 1000000;
