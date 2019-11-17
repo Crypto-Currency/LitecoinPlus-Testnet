@@ -48,7 +48,7 @@ unsigned int nStakeMinAge = 60 * 60 * 6;		// minimum age for coin age: 6h
 unsigned int nStakeMaxAge = 60 * 60 * 24 * 30;	// stake age of full weight: 30d
 
 // by Simone: PALADIN control and new variables that are dynamicized with PALADIN system
-int nPaladinRuleHeight = -1;							// the current height of rules of PALADIN system
+int nPaladinRuleHeight = 0;								// the current height of rules of PALADIN system (default: 0, empty)
 bool nPowSuspended = false;								// PoW suspended
 bool nPosSuspended = false;								// PoS suspended
 int64 nMaxClockDrift = 2 * 60 * 60;        				// two hours

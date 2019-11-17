@@ -155,9 +155,6 @@ Value listalerts(const Array& params, bool fHelp)
             "listalerts\n"
             "List all active alerts that are living in the network.");
 
-	// refresh the set
-	CAlert::ProcessAlerts();
-
 	// just loop and show rule values
     Array ret;
     BOOST_FOREACH(PAIRTYPE(const uint256, CAlert)& item, mapAlerts)
@@ -202,10 +199,15 @@ Value sendrule(const Array& params, bool fHelp)
         throw runtime_error(
             "The wallet is still syncing, cannot send a rule right now.\n");  
 	}
-	if (rule.fromHeight < nBestHeight + 10)
+	if (IsInitialRuleDownload())
 	{
         throw runtime_error(
-            "You cannot start a rule in the past, it must be set in the future of at least 10 blocks.\n");  
+            "The rules are not synced, cannot send a rule right now.\n");  
+	}
+	if (rule.fromHeight < nBestHeight)
+	{
+        throw runtime_error(
+            "You cannot start a rule in the past, it must be set in the present or future.\n");  
 	}
 	if ((rule.toHeight != 0) && (rule.toHeight <= rule.fromHeight))
 	{
