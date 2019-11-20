@@ -3480,7 +3480,7 @@ string GetWarnings(string strFor)
         BOOST_FOREACH(PAIRTYPE(const uint256, CAlert)& item, mapAlerts)
         {
             const CAlert& alert = item.second;
-            if (alert.AppliesToMe() && alert.nPriority > nPriority)
+            if (alert.AppliesToMe() && (alert.nPriority > nPriority) && (!CAlert::isRule(alert.nPriority)))
             {
                 nPriority = alert.nPriority;
                 strStatusBar = alert.strStatusBar;
