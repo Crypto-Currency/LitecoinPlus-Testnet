@@ -114,8 +114,8 @@ Value sendalert(const Array& params, bool fHelp)
         alert.nCancel = params[6].get_int();
     alert.nVersion = CONTROL_PROTOCOL_VERSION;
     alert.nPermanent = false;								// always false when sending a manual packet
-    alert.nRelayUntil = GetAdjustedTime() + 60;
-    alert.nExpiration = GetAdjustedTime() + 60;
+    alert.nRelayUntil = GetAdjustedTime() + 180;
+    alert.nExpiration = GetAdjustedTime() + 180;
 
     CDataStream sMsg(SER_NETWORK, PROTOCOL_VERSION);
     sMsg << (CUnsignedAlert)alert;
@@ -137,7 +137,9 @@ Value sendalert(const Array& params, bool fHelp)
     }
 
     Object result;
-    result.push_back(Pair("strStatusBar", alert.strStatusBar));
+	result.push_back(Pair("strComment", alert.strComment));
+	result.push_back(Pair("strStatusBar", alert.strStatusBar));
+	result.push_back(Pair("strReserved", alert.strReserved));
     result.push_back(Pair("nVersion", alert.nVersion));
     result.push_back(Pair("nMinVer", alert.nMinVer));
     result.push_back(Pair("nMaxVer", alert.nMaxVer));
@@ -161,7 +163,9 @@ Value listalerts(const Array& params, bool fHelp)
 	{
         const CAlert& alert = item.second;
         Object obj;
+		obj.push_back(Pair("strComment", alert.strComment));
 		obj.push_back(Pair("strStatusBar", alert.strStatusBar));
+		obj.push_back(Pair("strReserved", alert.strReserved));
 		obj.push_back(Pair("nVersion", alert.nVersion));
 		obj.push_back(Pair("nMinVer", alert.nMinVer));
 		obj.push_back(Pair("nMaxVer", alert.nMaxVer));
