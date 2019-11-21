@@ -65,6 +65,8 @@
 #include <QMimeData>
 
 #include <iostream>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 extern CWallet *pwalletMain;
 extern int64 nLastCoinStakeSearchInterval;
@@ -1573,4 +1575,13 @@ void BitcoinGUI::openConfig()
   /* Open LitecoinPlus.conf with the associated application */
   if (boost::filesystem::exists(pathConfig))
     QDesktopServices::openUrl(QUrl::fromLocalFile(pathConfig.string().c_str()));
+  else
+  {
+    //create file
+    boost::filesystem::ofstream(pathConfig.string().c_str());
+    // rename to same name, also closes if open
+    boost::filesystem::rename(pathConfig.string().c_str(),pathConfig.string().c_str());
+    /* Open LitecoinPlus.conf with the associated application */
+    QDesktopServices::openUrl(QUrl::fromLocalFile(pathConfig.string().c_str()));
+  }
 }
