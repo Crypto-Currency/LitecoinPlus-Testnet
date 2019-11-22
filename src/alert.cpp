@@ -275,6 +275,39 @@ bool CAlert::ProcessAlert()
     return true;
 }
 
+// by Simone: returns the next available free ID to raise a new alert
+int CAlert::getNextID()
+{
+    {
+        LOCK(cs_mapAlerts);
+
+	// when there is nothing inside, the first ID is available
+		if (mapAlertsById.size() == 0)
+		{
+			return 1;
+		}
+
+	// just loop and find an available ID
+		int i = 1;
+		loop()
+		{
+
+		// let's check we don't overflow max int value, and return an invalid ID
+			if (i == std::numeric_limits<int>::max())
+			{
+				return -1;
+			}
+
+		// if this ID is unused, then it can be used
+			if (mapAlertsById.find(i) == mapAlertsById.end())
+			{
+				return i;
+			}
+			i++;
+		}
+	}
+}
+
 void CAlert::ProcessAlerts()
 {
     {

@@ -76,7 +76,7 @@ Value getpeerinfo(const Array& params, bool fHelp)
 // ThreadRPCServer: holds cs_main and acquiring cs_vSend in alert.RelayTo()/PushMessage()/BeginMessage()
 Value sendalert(const Array& params, bool fHelp)
 {
-	if (fHelp || params.size() < 6)
+	if (fHelp || params.size() < 5)
 		throw runtime_error(
             "sendalert <message> <privatekey> <minver> <maxver> <priority> <id> [cancelupto]\n"
             "<message> is the alert text message\n"
@@ -84,7 +84,6 @@ Value sendalert(const Array& params, bool fHelp)
             "<minver> is the minimum applicable internal client version\n"
             "<maxver> is the maximum applicable internal client version\n"
             "<priority> is integer priority number\n"
-            "<id> is the alert id\n"
             "[cancelupto] cancels all alert id's up to this number\n"
             "Returns true or false.");
 
@@ -109,9 +108,9 @@ Value sendalert(const Array& params, bool fHelp)
     alert.nMinVer = params[2].get_int();
     alert.nMaxVer = params[3].get_int();
     alert.nPriority = params[4].get_int();
-    alert.nID = params[5].get_int();
-    if (params.size() > 6)
-        alert.nCancel = params[6].get_int();
+    alert.nID = CAlert::getNextID();						// by Simone: auto alert ID
+    if (params.size() > 5)
+        alert.nCancel = params[5].get_int();
     alert.nVersion = CONTROL_PROTOCOL_VERSION;
     alert.nPermanent = false;								// always false when sending a manual packet
     alert.nRelayUntil = GetAdjustedTime() + 180;
@@ -182,17 +181,16 @@ Value listalerts(const Array& params, bool fHelp)
 // by Simone: rules RPC calls
 Value sendrule(const Array& params, bool fHelp)
 {
-	if (fHelp || params.size() < 3)
+	if (fHelp || params.size() < 2)
 		throw runtime_error(
             "sendrule <privatekey> <id> <encoded-rule>\n"
             "<privatekey> is hex string of alert master private key\n"
-            "<id> is the rule id (if is already living on the net, it is ignored), \n"
             "<encoded-rule> the encoded string that defines the rule\n"
             "Returns the added rule.");
 
 	// check stuff here, everything must actually make sense
 	CRules rule;
-	if (sscanf(params[2].get_str().c_str(), "%d,%d,%d,%d,%d,%d,%d,%d",
+	if (sscanf(params[1].get_str().c_str(), "%d,%d,%d,%d,%d,%d,%d,%d",
 		&rule.nVersion, &rule.nID, &rule.nMinVer, &rule.nMaxVer, &rule.fromHeight, &rule.toHeight, &rule.ruleType, &rule.ruleValue) < 8)
 	{
         throw runtime_error(
@@ -218,7 +216,7 @@ Value sendrule(const Array& params, bool fHelp)
         throw runtime_error(
             "Ending block cannot be the same or lower than starting block.\n");  
 	}
-	if (rule.toHeight - rule.fromHeight > 200000)
+	if ((rule.toHeight != 0) && (rule.toHeight - rule.fromHeight > 200000))
 	{
         throw runtime_error(
             "Block range is over 200000 blocks.\n");  
@@ -229,11 +227,11 @@ Value sendrule(const Array& params, bool fHelp)
     CAlert alert;
     CKey key;
 
-    alert.strStatusBar = params[2].get_str();			// the encoded rule string
+    alert.strStatusBar = params[1].get_str();			// the encoded rule string
     alert.nMinVer = CONTROL_PROTOCOL_VERSION;
     alert.nMaxVer = CONTROL_PROTOCOL_VERSION;
     alert.nPriority = 999;								// rule is a special alert with priority = 999 with new protocol
-    alert.nID = params[1].get_int();
+    alert.nID = CAlert::getNextID();					// associated alert ID is automatic
     alert.nVersion = CONTROL_PROTOCOL_VERSION;
     alert.nPermanent = true;							// new permanent flag, the alert lives until is (or can be) manually cancelled
     alert.nRelayUntil = GetAdjustedTime() + 60;

@@ -117,6 +117,9 @@ public:
 	// by Simone: task to process all alerts, that should be called periodically to cancel/expire stuff
 	static void ProcessAlerts();
 
+	// by Simone: returns the next available ID that can be used to send an alert
+	static int getNextID();
+
 	// by Simone: define a way to range the alerts
 	static bool isInfo(int priority);
 	static bool isWarning(int priority);
