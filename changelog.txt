@@ -21,8 +21,9 @@ TODO:
 - BUGFIX: if the wallet is not encrypted, make no sense to have the "Unlock to stake" menu command enabled...
 - Display a message when dameon is attempting to connect to RPC but the wallet is still loading the blockchain
 - BUGFIX: changed all references to "bicoin-xxx" thread names into "litecoinplus-xxx" names
-- Pre-programmed a series of rules in the code for first release of PALADIN:
-	-	
+- Pre-programmed a series of rules in the code for first release of PALADIN (see white paper for version 5.0.0.1)
+- "getinfo" RPC method, removed errors/alerts, exposed Rule Height/Rule Sync status as a number/boolean instead
+- QT creates the LitecoinPlus.conf file if it doesn't exist
 
 
 ***** Version 4.0.1.2 (TESTNET)
