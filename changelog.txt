@@ -24,6 +24,9 @@ TODO:
 - Pre-programmed a series of rules in the code for first release of PALADIN (see white paper for version 5.0.0.1)
 - "getinfo" RPC method, removed errors/alerts, exposed Rule Height/Rule Sync status as a number/boolean instead
 - QT creates the LitecoinPlus.conf file if it doesn't exist
+- Automatic ID management for alerts, either for direct alerts or alert/rule packets
+- BUGFIX: do not show "info" and "warning" alerts as critical in the system dbus notification, just those who are
+- Added a suffix letter in version format for testnet, necessary when testing ('LitecoinPlus-[x]:X.X.X.X')
 
 
 ***** Version 4.0.1.2 (TESTNET)
