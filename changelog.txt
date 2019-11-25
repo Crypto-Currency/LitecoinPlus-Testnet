@@ -1,10 +1,3 @@
-TODO:
-- Error when too many blocks are selected for a transaction, suggest the dusting
-- Chart to show the memory pool size (like the network chart)
-- Changed the nMaxClockDrift from 2 hours to dynamically set (initial still 2 hours)
-- Check system clock at software start against a network reference, and do not start the software if the clock is too different
-
-
 ***** Version 5.0.0.1 (RELEASE)
 - Project is now fully ported to QT5
 - Remove self rescan at boot under certain conditions, not necessary anymore
@@ -27,6 +20,7 @@ TODO:
 - Automatic ID management for alerts, either for direct alerts or alert/rule packets
 - BUGFIX: do not show "info" and "warning" alerts as critical in the system dbus notification, just those who are
 - Added a suffix letter in version format for testnet, necessary when testing ('LitecoinPlus-[x]:X.X.X.X')
+- Ported back -netoffline option that was in unpublished 4.1.0.1 (possibility to start the wallet offline)
 
 
 ***** Version 4.0.1.2 (TESTNET)
