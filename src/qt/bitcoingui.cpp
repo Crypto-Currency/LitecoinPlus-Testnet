@@ -251,7 +251,7 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
     labelOnlineIcon->setPixmap(QIcon(":/icons/net_online").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
     labelOnlineIcon->setEnabled(true);
 	connect(labelOnlineIcon, SIGNAL(clicked()), this, SLOT(labelOnlineClicked()));
-	onlineLabelMsg(netOffline);
+	onlineLabelMsg(GetBoolArg("-netoffline", false));
 
     // Set minting pixmap
     labelMintingIcon->setPixmap(QIcon(":/icons/staking_on").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
