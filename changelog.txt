@@ -21,6 +21,7 @@
 - BUGFIX: do not show "info" and "warning" alerts as critical in the system dbus notification, just those who are
 - Added a suffix letter in version format for testnet, necessary when testing ('LitecoinPlus-[x]:X.X.X.X')
 - Ported back -netoffline option that was in unpublished 4.1.0.1 (possibility to start the wallet offline)
+- BUGFIX: adjusted behavior of rule_sync: rules.dat no, height 0 rule_sync=false; rules.dat yes, height 1 wallet offline rule_sync=false
 
 
 ***** Version 4.0.1.2 (TESTNET)
