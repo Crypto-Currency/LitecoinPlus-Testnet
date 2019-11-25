@@ -1439,7 +1439,7 @@ bool IsInitialRuleDownload()
 		return false;
 
 // if the average of all peers is equal my own height, we're synced
-	if (cPeerRuleCountsList.median() == nPaladinRuleHeight)
+	if ((cPeerRuleCountsList.size() > 0) && (nPaladinRuleHeight >= cPeerRuleCountsList.median()))
 	{
 		irdLatched = true;
 		return false;
@@ -3642,8 +3642,9 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
 		// by Simone: introduced with PALADIN, is the number of current existing rules height
         if (!vRecv.empty())
 		{
-            vRecv >> nPaladinRuleHeight;
-			cPeerRuleCountsList.input(nPaladinRuleHeight);
+			int tempPaladinRuleHeight;
+            vRecv >> tempPaladinRuleHeight;
+			cPeerRuleCountsList.input(tempPaladinRuleHeight);
 		}
 
         if (pfrom->fInbound && addrMe.IsRoutable())
