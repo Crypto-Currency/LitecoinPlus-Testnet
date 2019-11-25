@@ -91,8 +91,6 @@ bool CRules::insert(const CAlert& alert)
         map<int, CRules>::iterator mi = mapRules.find(rule.nID);
         if (mi == mapRules.end())
 		{
-			fprintf(stderr, "INSERITISSIMO\n");
-
 			mapRules.insert(make_pair(rule.nID, rule));
 
 		// dump everything to disk
@@ -104,15 +102,6 @@ bool CRules::insert(const CAlert& alert)
 		// update rule height
 			nPaladinRuleHeight = mapRules.size();
 		}
-
-
-		//rules.SetNull();		
-
-		//rdb.Read(rules);
-
-		//fprintf(stderr, "CAZZUTO %d\n", rules.vRules.size());
-
-
     }
 	return true;
 }

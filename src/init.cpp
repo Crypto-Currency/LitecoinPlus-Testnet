@@ -804,6 +804,15 @@ bool AppInit2()
         return false;
     }
 
+	// by Simone: put this here, otherwise the rule file doesn't load in testnet !
+    if (fTestNet)
+    {
+        pchMessageStart[0] = 0xcd;
+        pchMessageStart[1] = 0xf1;
+        pchMessageStart[2] = 0xc0;
+        pchMessageStart[3] = 0xef;
+	}
+
 	// by Simone: load rules here, exit on failure
     uiInterface.InitMessage(_("Loading PALADIN rules..."));
 	CDiskRules rules;

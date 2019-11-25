@@ -1749,8 +1749,11 @@ bool CRulesDB::Read(CDiskRules& dr)
         ssRules >> FLATDATA(pchMsgTmp);
 
         // verify the network matches ours
-        if (memcmp(pchMsgTmp, pchMessageStart, sizeof(pchMsgTmp)))
-            return error("CDiskRules::Read() : invalid network magic number");
+		if (pchMsgTmp[0] != pchMessageStart[0] ||
+			pchMsgTmp[1] != pchMessageStart[1] ||
+			pchMsgTmp[2] != pchMessageStart[2] ||
+			pchMsgTmp[3] != pchMessageStart[3])
+			return error("CDiskRules::Read() : invalid network magic number");
 
         // de-serialize address data into one CAddrMan object
         ssRules >> dr;
