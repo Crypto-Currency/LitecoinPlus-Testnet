@@ -1519,8 +1519,7 @@ void BitcoinGUI::updateMintingIcon()
 
       if (!clientModel->getNumConnections())
          labelMintingIcon->setToolTip(tr("Not staking because wallet is offline"));
-      else if (clientModel->inInitialBlockDownload() ||
-               clientModel->getNumBlocks() < clientModel->getNumBlocksOfPeers())
+      else if (clientModel->inInitialBlockDownload())		// by Simone: we apply the same logic of the mint thread....
          labelMintingIcon->setToolTip(tr("Not staking because wallet is syncing"));
       else if(walletModel->getEncryptionStatus() == WalletModel::Locked)
          labelMintingIcon->setToolTip(tr("Not staking because wallet is locked"));
