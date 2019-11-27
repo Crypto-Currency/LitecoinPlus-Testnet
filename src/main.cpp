@@ -1410,10 +1410,12 @@ bool IsInitialBlockDownload()
 {
 // once synced, always synced
 	if (ibdLatched)
+	{
 		return false;
+	}
 
-// if the average of all peers is equal my own height, we're synced
-	if (cPeerBlockCountsList.median() == nBestHeight)
+// if the average of all peers is equal my own height, we're synced (and at least ONE node was connected...)
+	if ((cPeerBlockCountsList.size() > 0) && (cPeerBlockCountsList.median() == nBestHeight))
 	{
 		ibdLatched = true;
 		return false;
