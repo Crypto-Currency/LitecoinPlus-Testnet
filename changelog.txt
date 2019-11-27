@@ -22,6 +22,7 @@
 - Added a suffix letter in version format for testnet, necessary when testing ('LitecoinPlus-[x]:X.X.X.X')
 - Ported back -netoffline option that was in unpublished 4.1.0.1 (possibility to start the wallet offline)
 - BUGFIX: adjusted behavior of rule_sync: rules.dat no, height 0 rule_sync=false; rules.dat yes, height 1 wallet offline rule_sync=false
+- BUGFIX: PoS minting icon, different logic than the thread itself, let's all use the same logic, shall we...
 
 
 ***** Version 4.0.1.2 (TESTNET)
