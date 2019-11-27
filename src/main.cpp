@@ -4093,7 +4093,7 @@ std::string testver=incomingver.substr(index); // first chr should be ':'
     {
 		// by Simone: if PALADIN system has not been synced yet, refuse to accept anything, silently
 		if ((!nPaladinOnlyClients) ||
-			(nPaladinOnlyClients && IsInitialRuleDownload()))
+			(nPaladinOnlyClients && !IsInitialRuleDownload()))
 		{
 			// by Simone: because when syncing from fast peers is very busy, update the recv packet time also here
 			pfrom->nLastRecv = GetTime();
@@ -4647,7 +4647,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 		    //
 			// by Simone: we start requesting data only after the PALADIN system has been refreshed
 			if ((!nPaladinOnlyClients) ||
-				(nPaladinOnlyClients && IsInitialRuleDownload()))
+				(nPaladinOnlyClients && !IsInitialRuleDownload()))
 			{
 				vector<CInv> vGetData;
 				int64 nNow = GetTime() * 1000000;
