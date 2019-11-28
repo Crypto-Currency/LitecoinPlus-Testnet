@@ -153,14 +153,27 @@ Value listalerts(const Array& params, bool fHelp)
 {
 	if (fHelp)
 		throw runtime_error(
-            "listalerts\n"
-            "List all active alerts that are living in the network.");
+            "listalerts [show_rules=false]\n"
+            "List all active alerts that are living in the network (if true, will show those packets that are rules).");
 
 	// just loop and show rule values
     Array ret;
     BOOST_FOREACH(PAIRTYPE(const uint256, CAlert)& item, mapAlerts)
 	{
         const CAlert& alert = item.second;
+
+	// by Simone: show those embedded rule packets only if asked to
+		if (params.size() > 0)
+		{
+			if (!params[0].get_bool() && CAlert::isRule(alert.nPriority))
+				continue;
+		}
+		else
+		{
+			if (CAlert::isRule(alert.nPriority))
+				continue;
+		}
+
         Object obj;
 		obj.push_back(Pair("strComment", alert.strComment));
 		obj.push_back(Pair("strStatusBar", alert.strStatusBar));
