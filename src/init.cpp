@@ -828,8 +828,11 @@ bool AppInit2()
     uiInterface.InitMessage(_("Loading block index..."));
     printf("Loading block index...\n");
     nStart = GetTimeMillis();
-    if (!LoadBlockIndex())
-        return InitError(_("Error loading blkindex.dat"));
+	if (!LoadBlockIndex())
+		return InitError(_("Error loading blkindex.dat"));
+
+	// by Simone: set generic rules once immediately after loading the index
+	CRules::parseGenericRules(nBestHeight);
 
     // as LoadBlockIndex can take several minutes, it's possible the user
     // requested to kill bitcoin-qt during the last operation. If so, exit.
