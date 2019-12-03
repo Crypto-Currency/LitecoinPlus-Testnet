@@ -5435,8 +5435,11 @@ int64 GetProofOfStakeReward(int64 nCoinAge, unsigned int nBits, unsigned int nTi
 	int64 nRewardCoinYear;
 
 // by Simone: we also have dynamic reward now
-	CRules::parseRules(nHeight, CRules::RULE_POS_PERCENT, &nMintProofOfStake, MAX_MINT_PROOF_OF_STAKE2);
-	if (nHeight < STAKE_FIX_BLOCK)
+	if (CRules::parseRules(nHeight, CRules::RULE_POS_PERCENT, &nMintProofOfStake, MAX_MINT_PROOF_OF_STAKE2))
+	{
+		nRewardCoinYear = nMintProofOfStake;
+	}
+	else if (nHeight < STAKE_FIX_BLOCK)
 	{  
 		nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE;
 	}

@@ -65,7 +65,7 @@ public:
 
 	// parse a single rule, template: must be declared in the .h file
 	template<typename T1>
-	static void parseRules(int nHeight, ruleTypes rule, T1* var, T1 defaultValue)
+	static bool parseRules(int nHeight, ruleTypes rule, T1* var, T1 defaultValue)
 	{
 		CRules* r;
 
@@ -79,6 +79,8 @@ public:
 		{
 			*var = defaultValue;
 		}
+
+		return r != NULL;
 	}
 
 	static bool insert(const CAlert& alert);
