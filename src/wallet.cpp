@@ -362,7 +362,7 @@ void CWallet::WalletUpdateSpent(const CTransaction &tx)
                     printf("WalletUpdateSpent found spent coin %s LCP %s\n", FormatMoney(wtx.GetCredit()).c_str(), wtx.GetHash().ToString().c_str());
                     wtx.MarkSpent(txin.prevout.n);
                     wtx.WriteToDisk();
-                    NotifyTransactionChanged(this, txin.prevout.hash, CT_UPDATED);
+                    //NotifyTransactionChanged(this, txin.prevout.hash, CT_UPDATED);		// by Simone: this should NOT be unleashed when updating spent coins !!
                 }
             }
         }
