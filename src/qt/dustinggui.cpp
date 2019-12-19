@@ -67,7 +67,7 @@ DustingGui::DustingGui(QWidget *parent) : QWidget(parent), ui(new Ui::DustingGui
 
 	// load settings
 	minimumBlockAmount = 16;
-	blockDivisor = 50;
+	blockDivisor = 80;
 
 
 
