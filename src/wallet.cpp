@@ -1774,7 +1774,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
 		        if (walletTraceTiming)
 		            fprintf(stderr, "CommitTransaction()/[chk 4.3] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 		        nStart = GetTimeMillis();
-                NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
+                //NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);		// by Simone: this should NOT be unleashed when committing transactions, is useless ! Anyway they will be updated by the chain itself
 		        if (walletTraceTiming)
 		            fprintf(stderr, "CommitTransaction()/[chk 4.4] lasted %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 		        nStart = GetTimeMillis();
