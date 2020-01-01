@@ -28,6 +28,7 @@
 - MAJOR FIX: QT version wasted an immense amount of resources when sending coins from many inputs, removed an unnecessary signal when marking spent coins
 - Changed threshold of 10000 bytes to 30000 bytes in advanced coin controls (about 200 inputs can be safely manually selected)
 - Changed block amount from 50 to 80 for automatic dusting, considering the new found speed for the major fix above
+- Make universally compile version: QT4 and QT5 at the same time (on Windows, still need to use QT4 for compile reasons...)
 
 
 ***** Version 4.0.1.2 (TESTNET)
