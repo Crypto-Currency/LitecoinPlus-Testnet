@@ -97,10 +97,12 @@ void Shutdown(void* parg)
 		if (fStartOver)
 		{
 			boost::filesystem::path p = GetDataDir();
-			for (boost::filesystem::path entry : boost::make_iterator_range(boost::filesystem::directory_iterator(p / "database"), {}))
+			boost::filesystem::directory_iterator end_itr;
+			for (boost::filesystem::directory_iterator itr(p / "database"); itr != end_itr; ++itr)
 			{
-				boost::filesystem::remove(entry);
+				boost::filesystem::remove(*itr);
 			}
+			boost::filesystem::remove(p / "database");
 			for (int i = 1; ; i++)
 			{
 				char s[64];
@@ -340,7 +342,7 @@ std::string HelpMessage()
 bool txIndexFileExists = true;
 
 // by Simone: core dump handler
-
+#ifndef WIN32
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 typedef struct _sig_ucontext {
  unsigned long     uc_flags;
@@ -392,12 +394,14 @@ void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
 
  exit(EXIT_FAILURE);
 }
+#endif
 
 /** Initialize bitcoin.
  *  @pre Parameters should be parsed and config file should be read.
  */
 bool AppInit2()
 {
+#ifndef WIN32
 	// by Simone: adding core dumps handler, at least in Linux
 	struct sigaction sigact;
 
@@ -411,7 +415,7 @@ bool AppInit2()
 
 		exit(EXIT_FAILURE);
 	}
-
+#endif
 
     // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
