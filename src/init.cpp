@@ -17,7 +17,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <openssl/crypto.h>
 
-#ifndef WIN32
+//#ifndef WIN32 && __APPLE__
+#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
 #include <signal.h>
 #include <execinfo.h>
 #include <ucontext.h>
@@ -342,7 +343,8 @@ std::string HelpMessage()
 bool txIndexFileExists = true;
 
 // by Simone: core dump handler
-#ifndef WIN32
+//#ifndef WIN32
+#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
 /* This structure mirrors the one found in /usr/include/asm/ucontext.h */
 typedef struct _sig_ucontext {
  unsigned long     uc_flags;
@@ -401,7 +403,8 @@ void crit_err_hdlr(int sig_num, siginfo_t * info, void * ucontext)
  */
 bool AppInit2()
 {
-#ifndef WIN32
+//#ifndef WIN32
+#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
 	// by Simone: adding core dumps handler, at least in Linux
 	struct sigaction sigact;
 
@@ -440,7 +443,8 @@ bool AppInit2()
     PSETPROCDEPPOL setProcDEPPol = (PSETPROCDEPPOL)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetProcessDEPPolicy");
     if (setProcDEPPol != NULL) setProcDEPPol(PROCESS_DEP_ENABLE);
 #endif
-#ifndef WIN32
+//#ifndef WIN32
+#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
     umask(077);
 
     // Clean shutdown on SIGTERM
