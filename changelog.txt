@@ -1,4 +1,4 @@
-***** Version 5.0.0.2 (RELEASE)
+***** Version 5.0.0.2 (CURRENTLY ALPHA)
 - Added RPC method "dustwallet", to be able to dust wallet from daemon as well given a series of parameters
 - Added RPC method "listcoins", to display the selection made by the RPC call above (useful to report eventual issues)
 
