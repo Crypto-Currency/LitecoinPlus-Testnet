@@ -280,15 +280,10 @@ void SkinsPage::getlist()
   // first, let's disable the download button (triple-clicks fanatics !)
   downloadButton->setEnabled(false);
 
-  // create dir if not
-  QDir imgdir(inipath + "/images");
-  if (!imgdir.exists())
-    imgdir.mkpath(".");
-
   connect(&manager,SIGNAL(finished(QNetworkReply*)),this,SLOT(getListFinished(QNetworkReply*)));
 
   QNetworkRequest request;
-  request.setUrl(QUrl("http://litecoinplus.co/themes/list.txt"));
+  request.setUrl(QUrl("http://litecoinplus.co/themes/list.v2.txt"));
   request.setRawHeader("User-Agent", "Wallet theme request");
 
   networkTimer->start();
@@ -320,7 +315,7 @@ bool SkinsPage::netHandleError(QNetworkReply* reply, QString urlDownload)
 
 void SkinsPage::getListFinished(QNetworkReply* reply)
 {
-  if (netHandleError(reply, "http://litecoinplus.co/themes/list.txt")) {
+  if (netHandleError(reply, "http://litecoinplus.co/themes/list.v2.txt")) {
     disconnect(&manager, SIGNAL(finished(QNetworkReply*)), 0, 0);  
     connect(&manager, SIGNAL(finished(QNetworkReply*)), SLOT(downloadFinished(QNetworkReply*)));
     QString pagelist=reply->readAll();
@@ -333,8 +328,20 @@ void SkinsPage::getListFinished(QNetworkReply* reply)
       line = line.simplified(); // strip extra characters
       line.replace("\r",""); // this one too
       if(line.length())
-      {  
-        download("http://litecoinplus.co/themes/"+line);
+      {
+		if (line.startsWith("createDir::"))		// by Simone: which subfolders need to be created, are declared in the file
+		{
+			line.replace("createDir::", "");	
+
+		// create dir if it doesn't exist yet
+			QDir imgdir(inipath + line);
+			if (!imgdir.exists())
+			{
+				imgdir.mkpath(".");
+			}
+		} else {  
+        	download("http://litecoinplus.co/themes/" + line);
+		}
       } 
     }
   }
