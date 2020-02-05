@@ -1,6 +1,7 @@
-***** Version 5.0.0.2 (CURRENTLY ALPHA)
+***** Version 5.0.0.2 (RELEASE)
 - Added RPC method "dustwallet", to be able to dust wallet from daemon as well given a series of parameters
 - Added RPC method "listcoins", to display the selection made by the RPC call above (useful to report eventual issues)
+- BUGFIX: subfolders under /images in theme were not managed, created 'list.v2.txt' and 'createDir::' tag to handle any subfolder, any level
 
 
 ***** Version 5.0.0.1 (RELEASE)
