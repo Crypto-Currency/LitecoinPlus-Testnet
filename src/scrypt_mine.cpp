@@ -29,15 +29,16 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <xmmintrin.h>
 
-extern "C"
-{
-  #ifndef NOSSE
-    #ifndef NO_ASM
-      #include <xmmintrin.h>
-    #endif
-  #endif
-}
+//extern "C"
+//{
+//  #ifndef NOSSE
+//    #ifndef NO_ASM
+//      #include <xmmintrin.h>
+//    #endif
+//  #endif
+//}
 
 #include "scrypt_mine.h"
 #include "pbkdf2.h"
@@ -62,8 +63,8 @@ extern "C" void scrypt_core(uint32_t *X, uint32_t *V);
 extern "C" void scrypt_core_2way(uint32_t *X, uint32_t *Y, uint32_t *V);
 extern "C" void scrypt_core_3way(uint32_t *X, uint32_t *Y, uint32_t *Z, uint32_t *V);
 
-//#elif defined(__i386__)
-#elif ( defined(__i386__)||defined(__arm__) )
+#elif defined(__i386__)
+//#elif ( defined(__i386__)||defined(__arm__) )
 #define SCRYPT_BUFFER_SIZE (131072 + 63)
 
 extern  "C" void scrypt_core(uint32_t *X, uint32_t *V);
@@ -86,19 +87,27 @@ void scrypt_buffer_free(void *scratchpad)
 
 static void scrypt(const void* input, size_t inputlen, uint32_t *res, void *scratchpad)
 {
+printf("gh6a scrypt_mine:: scrypt called\n");
     uint32_t *V;
     uint32_t X[32];
     V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
+printf("gh6b scrypt_mine:: calling PBKDF2_SHA265\n");
     PBKDF2_SHA256((const uint8_t*)input, inputlen, (const uint8_t*)input, sizeof(block_header), 1, (uint8_t *)X, 128);
 
-    scrypt_core(X, V);
+printf("gh6c scrypt_mine:: calling scrypt_core\n");
 
+printf(" V= %15" PRI64d "\n",V);
+    scrypt_core(X, V);
+printf("gh6d scrypt_mine:: returned from scrypt_core\n");
+
+printf("gh6e scrypt_mine:: calling PBKDF2_SHA265\n");
     PBKDF2_SHA256((const uint8_t*)input, inputlen, (uint8_t *)X, 128, 1, (uint8_t*)res, 32);
 }
 
 void scrypt_hash(const void* input, size_t inputlen, uint32_t *res, void *scratchpad)
 {
+printf("gh5a scrypt_mine::scrypt_hash calling scrypt\n");
     return scrypt(input, inputlen, res, scratchpad);
 }
 
