@@ -430,23 +430,22 @@ bool AppInit2()
     // Disable confusing "helpful" text message on abort, Ctrl-C
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #endif
-//#ifdef WIN32
+#ifdef WIN32
     // Enable Data Execution Prevention (DEP)
     // Minimum supported OS versions: WinXP SP3, WinVista >= SP1, Win Server 2008
     // A failure is non-critical and needs no further attention!
-//#ifndef PROCESS_DEP_ENABLE
-//// We define this here, because GCCs winbase.h limits this to _WIN32_WINNT >= 0x0601 (Windows 7),
-//// which is not correct. Can be removed, when GCCs winbase.h is fixed!
-//#define PROCESS_DEP_ENABLE 0x00000001
-//#endif
-//    typedef BOOL (WINAPI *PSETPROCDEPPOL)(DWORD);
-//    PSETPROCDEPPOL setProcDEPPol = (PSETPROCDEPPOL)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetProcessDEPPolicy");
-//    if (setProcDEPPol != NULL) setProcDEPPol(PROCESS_DEP_ENABLE);
-//#endif
+#ifndef PROCESS_DEP_ENABLE
+// We define this here, because GCCs winbase.h limits this to _WIN32_WINNT >= 0x0601 (Windows 7),
+// which is not correct. Can be removed, when GCCs winbase.h is fixed!
+#define PROCESS_DEP_ENABLE 0x00000001
+#endif
+    typedef BOOL (WINAPI *PSETPROCDEPPOL)(DWORD);
+    PSETPROCDEPPOL setProcDEPPol = (PSETPROCDEPPOL)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetProcessDEPPolicy");
+    if (setProcDEPPol != NULL) setProcDEPPol(PROCESS_DEP_ENABLE);
+#endif
 //#ifndef WIN32
-//#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
+#if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
 
-#ifndef WIN32
     umask(077);
 
     // Clean shutdown on SIGTERM
@@ -610,7 +609,6 @@ bool AppInit2()
     printf("Default data directory %s\n", GetDefaultDataDir().string().c_str());
     printf("Used data directory %s\n", strDataDir.c_str());
     //check for themes directory, and create if missing
-printf("checking for main themes directory\n");
     if (!filesystem::exists(GetDataDir() / "themes"))
     {
       boost::filesystem::path temppath;
@@ -625,7 +623,6 @@ printf("checking for main themes directory\n");
     std::ostringstream strErrors;
 
 
-printf("checking for txindex.dat file\n");
 	// by Simone: we check if the file txindex.dat exists, otherwise we need to create it from the old index, the guts will take care of it
 	boost::filesystem::path path = GetDataDir() / "txindex.dat";
 	boost::filesystem::path pathBlk = GetDataDir() / "blkindex.dat";
@@ -636,7 +633,6 @@ printf("checking for txindex.dat file\n");
 		txIndexFileExists = false;
 	}
 
-printf("LitecoinPlus server starting\n");
     if (fDaemon)
         fprintf(stdout, "LitecoinPlus server starting\n");
 
@@ -645,7 +641,6 @@ printf("LitecoinPlus server starting\n");
     // ********************************************************* Step 5: verify database integrity
 
     uiInterface.InitMessage(_("Verifying database integrity..."));
-printf("Verifying database integrity...");
 
     if (!bitdb.Open(GetDataDir()))
     {
@@ -679,7 +674,6 @@ printf("Verifying database integrity...");
 
     // ********************************************************* Step 6: network initialization
 
-printf("RegisterNodeSignales...");
     RegisterNodeSignals(GetNodeSignals());
 
     int nSocksVersion = GetArg("-socks", 5);
@@ -814,10 +808,7 @@ printf("RegisterNodeSignales...");
 
 	// by Simone: start RPC server before loading the blockchain
 	if (fServer)
-	{
-printf("init::calling NewThread");
       	NewThread(ThreadRPCServer, NULL);
-     }
 
     if (GetBoolArg("-loadblockindextest"))
     {
@@ -838,7 +829,6 @@ printf("init::calling NewThread");
 
 	// by Simone: load rules here, exit on failure
     uiInterface.InitMessage(_("Loading PALADIN rules..."));
-printf("init::load Paladin rules");
 	CDiskRules rules;
 	CRulesDB rdb;
 	if (!rdb.Read(rules))
