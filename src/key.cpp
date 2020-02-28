@@ -7,6 +7,13 @@
 #include <openssl/ecdsa.h>
 #include <openssl/obj_mac.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+typedef struct ECDSA_SIG_st {
+    BIGNUM *r;
+    BIGNUM *s;
+} ECDSA_SIG;
+#endif
+
 #include "key.h"
 
 // Generate a private key from just the secret parameter

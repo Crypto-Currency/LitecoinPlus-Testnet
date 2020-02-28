@@ -1235,6 +1235,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "sendalert"              && n > 3) ConvertTo<boost::int64_t>(params[3]);
     if (strMethod == "sendalert"              && n > 4) ConvertTo<boost::int64_t>(params[4]);
     if (strMethod == "sendalert"              && n > 5) ConvertTo<boost::int64_t>(params[5]);
+    if (strMethod == "sendalert"              && n > 6) ConvertTo<boost::int64_t>(params[6]);
     if (strMethod == "listalerts"             && n > 0) ConvertTo<bool>(params[0]);
     if (strMethod == "testrule"               && n > 0) ConvertTo<boost::int64_t>(params[0]);
     if (strMethod == "testrule"               && n > 1) ConvertTo<boost::int64_t>(params[1]);
