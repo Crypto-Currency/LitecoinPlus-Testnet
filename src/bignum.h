@@ -25,6 +25,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <bignum/bn_misc.h>
 #include <bignum/bn.h>
 
 #include "util.h" // for uint64
