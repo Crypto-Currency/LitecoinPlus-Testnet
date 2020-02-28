@@ -73,7 +73,7 @@
 
 //#include <openssl/opensslv.h>
 
-const char BN_LCP_version[]="Big Number" OPENSSL_VERSION_PTEXT;
+const char BN_LCP_version[]="Big Number" OPENSSL_LCP_VERSION_PTEXT;
 
 /* This stuff appears to be completely unused, so is deprecated */
 #ifndef OPENSSL_NO_DEPRECATED
@@ -249,12 +249,12 @@ void BN_LCP_clear_free(BIGNUM_LCP *a)
 	bn_lcp_check_top(a);
 	if (a->d != NULL)
 		{
-		OPENSSL_cleanse(a->d,a->dmax*sizeof(a->d[0]));
+		LCP_OPENSSL_cleanse(a->d,a->dmax*sizeof(a->d[0]));
 		if (!(BN_LCP_get_flags(a,BN_LCP_FLG_STATIC_DATA)))
 			OPENSSL_free(a->d);
 		}
 	i=BN_LCP_get_flags(a,BN_LCP_FLG_MALLOCED);
-	OPENSSL_cleanse(a,sizeof(BIGNUM_LCP));
+	LCP_OPENSSL_cleanse(a,sizeof(BIGNUM_LCP));
 	if (i)
 		OPENSSL_free(a);
 	}

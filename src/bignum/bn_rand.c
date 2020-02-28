@@ -206,7 +206,7 @@ static int bnrand(int pseudorand, BIGNUM_LCP *rnd, int bits, int top, int bottom
 err:
 	if (buf != NULL)
 		{
-		OPENSSL_cleanse(buf,bytes);
+		LCP_OPENSSL_cleanse(buf,bytes);
 		OPENSSL_free(buf);
 		}
 	bn_lcp_check_top(rnd);

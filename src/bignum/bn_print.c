@@ -154,12 +154,12 @@ char *BN_LCP_bn2dec(const BIGNUM_LCP *a)
 		/* We now have a series of blocks, BN_LCP_DEC_NUM chars
 		 * in length, where the last one needs truncation.
 		 * The blocks need to be reversed in order. */
-		BIO_snprintf(p,BUF_REMAIN,BN_LCP_DEC_FMT1,*lp);
+		LCP_BIO_snprintf(p,BUF_REMAIN,BN_LCP_DEC_FMT1,*lp);
 		while (*p) p++;
 		while (lp != bn_lcp_data)
 			{
 			lp--;
-			BIO_snprintf(p,BUF_REMAIN,BN_LCP_DEC_FMT2,*lp);
+			LCP_BIO_snprintf(p,BUF_REMAIN,BN_LCP_DEC_FMT2,*lp);
 			while (*p) p++;
 			}
 		}
@@ -374,10 +374,10 @@ char *BN_LCP_options(void)
 		{
 		init++;
 #ifdef BN_LCP_LLONG
-		BIO_snprintf(data,sizeof data,"bn(%d,%d)",
+		LCP_BIO_snprintf(data,sizeof data,"bn(%d,%d)",
 			     (int)sizeof(BN_LCP_ULLONG)*8,(int)sizeof(BN_LCP_ULONG)*8);
 #else
-		BIO_snprintf(data,sizeof data,"bn(%d,%d)",
+		LCP_BIO_snprintf(data,sizeof data,"bn(%d,%d)",
 			     (int)sizeof(BN_LCP_ULONG)*8,(int)sizeof(BN_LCP_ULONG)*8);
 #endif
 		}

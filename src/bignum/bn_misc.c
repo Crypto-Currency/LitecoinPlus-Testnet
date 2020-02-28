@@ -35,3 +35,32 @@ unsigned long ERR_LCP_peek_last_error(void)
 	return(0);
 }
 
+extern void OPENSSL_cleanse(void *ptr, size_t len);
+void LCP_OPENSSL_cleanse(void *ptr, size_t len)
+{
+	OPENSSL_cleanse(ptr, len);		// call original hook
+}
+
+int LCP_BIO_snprintf(char *buf, size_t n, const char *format, ...)
+{
+	fprintf(stderr, "LCP_BIO_snprintf, damn it...\n");
+	return(0);
+}
+
+int LCP_BIO_vsnprintf(char *buf, size_t n, const char *format, va_list args)
+{
+	fprintf(stderr, "LCP_BIO_vsnprintf, damn it...\n");
+	return(0);
+}
+
+void LCP_ERR_load_strings(int lib,LCP_ERR_STRING_DATA str[])
+{
+	fprintf(stderr, "LCP_ERR_load_strings, damn it...\n");
+}
+
+const char *LCP_ERR_func_error_string(unsigned long e)
+{
+	fprintf(stderr, "LCP_ERR_func_error_string, damn it...\n");
+	return(NULL);
+}
+
