@@ -1,6 +1,8 @@
 #include "signverifymessagedialog.h"
 #include "ui_signverifymessagedialog.h"
 
+#include <openssl/ec.h> // for EC_KEY definition
+
 #include "addressbookpage.h"
 #include "base58.h"
 #include "guiutil.h"
