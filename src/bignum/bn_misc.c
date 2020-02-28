@@ -8,10 +8,9 @@
 #include "bn_lcl.h"
 
 
-extern void CRYPTO_lock(int mode, int type, const char *file, int line);
 void LCP_CRYPTO_lock(int mode, int type, const char *file, int line)
 {
-	CRYPTO_lock(mode, type, file, line);
+	fprintf(stderr, "LCP_CRYPTO_lock, damn it...\n");
 }
 
 void ERR_LCP_put_error(int lib, int func, int reason, const char *file, int line)
