@@ -3,6 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <openssl/ec.h> // for EC_KEY definition
+
 #include "wallet.h"
 #include "walletdb.h"
 #include "bitcoinrpc.h"
@@ -839,6 +841,27 @@ struct tallyitem
     }
 };
 
+void ListTxIds(const string& strAccount, Array& ret)
+{
+    std::list<CAccountingEntry> acentries;
+    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount);
+
+// iterate backwards all items
+	Array txids;
+    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    {
+        CWalletTx *const pwtx = (*it).second.first;
+        if (pwtx != 0) {
+	        Object obj;
+			obj.push_back(Pair("txid", pwtx->GetHash().GetHex()));
+			txids.push_back(obj);
+		}
+	}
+	Object obj;
+	obj.push_back(Pair("txids", txids));
+	ret.push_back(obj);
+}
+
 Value ListReceived(const Array& params, bool fByAccounts)
 {
     // Minimum confirmations
@@ -909,6 +932,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
             ret.push_back(obj);
+			ListTxIds(strAccount, ret);
         }
     }
 
@@ -923,6 +947,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
             ret.push_back(obj);
+			ListTxIds((*it).first, ret);
         }
     }
 
@@ -1904,7 +1929,7 @@ Value listcoins(const Array& params, bool fHelp)
 	if (showSize)
 	{
 		Object obj;
-		obj.push_back(Pair("block_count", mapCoins.size()));
+		obj.push_back(Pair("block_count", (int64_t)mapCoins.size()));
 		return obj;
 	}
 
@@ -1946,8 +1971,8 @@ Value dustwallet(const Array& params, bool fHelp)
 // declare some settings
 	int blockCount = mapCoins.size();
 	int minimumBlockAmount = 2000;
-    if (params.size() > 1)
-        minimumBlockAmount = params[1].get_int();
+	if (params.size() > 1)
+		minimumBlockAmount = params[1].get_int();
 	int blockDivisor = 80;
 
 // check number of blocks and do some preparation for the loop

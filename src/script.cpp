@@ -8,12 +8,12 @@
 using namespace std;
 using namespace boost;
 
+#include <openssl/ec.h> // for EC_KEY definition
+
 #include "bignum.h"
 #include "main.h"
 #include "sync.h"
 #include "util.h"
-
-#include <openssl/ec.h> // for EC_KEY definition
 
 #include "script.h"
 #include "keystore.h"

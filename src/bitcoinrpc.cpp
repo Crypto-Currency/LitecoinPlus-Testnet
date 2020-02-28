@@ -3,13 +3,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "init.h"
 #include "util.h"
-#include "sync.h"
-#include "ui_interface.h"
-#include "base58.h"
-#include "bitcoinrpc.h"
-#include "db.h"
 
 #undef printf
 #include <boost/asio.hpp>
@@ -27,6 +21,14 @@
 #include <list>
 
 #define printf OutputDebugStringF
+
+#include <openssl/ec.h> // for EC_KEY definition
+#include "init.h"
+#include "sync.h"
+#include "ui_interface.h"
+#include "base58.h"
+#include "bitcoinrpc.h"
+#include "db.h"
 
 using namespace std;
 using namespace boost;
