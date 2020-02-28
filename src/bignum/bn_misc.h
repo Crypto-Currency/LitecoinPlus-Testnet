@@ -1,18 +1,10 @@
 #ifndef HEADER_BN_MISC_H
 #define HEADER_BN_MISC_H
 
-
-#ifdef SIXTY_FOUR_BIT_LONG
-//FUCK YOU
+#ifdef  __cplusplus
+extern "C" {
 #endif
 
-#ifdef SIXTY_FOUR_BIT
-//FUCK YOU 2
-#endif
-
-#ifdef THIRTY_TWO_BIT
-FUCK YOU 3
-#endif
 
 // Check windows
 #if _WIN32 || _WIN64
@@ -244,7 +236,7 @@ int CRYPTO_remove_all_info(void);
 /* When changing the CRYPTO_LOCK_* list, be sure to maintin the text lock
  * names in cryptlib.c
  */
-void CRYPTO_lock(int mode, int type,const char *file,int line);
+void LCP_CRYPTO_lock(int mode, int type,const char *file,int line);
 #define	CRYPTO_LOCK_ERR			1
 #define	CRYPTO_LOCK_EX_DATA		2
 #define	CRYPTO_LOCK_X509		3
@@ -295,13 +287,13 @@ void CRYPTO_lock(int mode, int type,const char *file,int line);
 #ifndef OPENSSL_NO_LOCKING
 #ifndef CRYPTO_w_lock
 #define CRYPTO_w_lock(type)	\
-	CRYPTO_lock(CRYPTO_LOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
+	LCP_CRYPTO_lock(CRYPTO_LOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
 #define CRYPTO_w_unlock(type)	\
-	CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
+	LCP_CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
 #define CRYPTO_r_lock(type)	\
-	CRYPTO_lock(CRYPTO_LOCK|CRYPTO_READ,type,__FILE__,__LINE__)
+	LCP_CRYPTO_lock(CRYPTO_LOCK|CRYPTO_READ,type,__FILE__,__LINE__)
 #define CRYPTO_r_unlock(type)	\
-	CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_READ,type,__FILE__,__LINE__)
+	LCP_CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_READ,type,__FILE__,__LINE__)
 #define CRYPTO_add(addr,amount,type)	\
 	CRYPTO_add_lock(addr,amount,type,__FILE__,__LINE__)
 #endif
@@ -386,6 +378,9 @@ int LCP_BIO_vsnprintf(char *buf, size_t n, const char *format, va_list args)
 unsigned long ERR_LCP_peek_last_error(void);
 void ERR_LCP_clear_error(void );
 
+#ifdef  __cplusplus
+}
+#endif
 
 
 #endif

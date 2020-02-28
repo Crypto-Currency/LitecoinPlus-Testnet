@@ -137,6 +137,27 @@
 //#include <bignum/crypto.h>
 //#include <bignum/comp.h>
 
+
+// Check windows
+#if _WIN32 || _WIN64
+#if _WIN64
+#define SIXTY_FOUR_BIT
+#undef SIXTY_FOUR_BIT_LONG
+#else
+#define THIRTY_TWO_BIT
+#endif
+#endif
+
+// Check GCC
+#if __GNUC__
+#if __x86_64__ || __ppc64__
+#define SIXTY_FOUR_BIT
+#undef SIXTY_FOUR_BIT_LONG
+#else
+#define THIRTY_TWO_BIT
+#endif
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
