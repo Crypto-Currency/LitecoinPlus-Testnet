@@ -99,8 +99,18 @@ Value GetNetworkHashPS(int lookup) {
         lookup = pindexBest->nHeight;
 
     CBlockIndex* pindexPrev = pindexBest;
-    for (int i = 0; i < lookup; i++)
+	int i = 0;
+	while (i < lookup) {
         pindexPrev = pindexPrev->pprev;
+		if (pindexPrev->IsProofOfStake())
+		{
+			continue;
+		}
+		else
+		{
+			i++;
+		}
+	}
 
     double timeDiff = pindexBest->GetBlockTime() - pindexPrev->GetBlockTime();
     double timePerBlock = timeDiff / lookup;
