@@ -347,7 +347,7 @@ OTHER_FILES += \
 # platform specific defaults, if not overridden on command line
 isEmpty(BOOST_LIB_SUFFIX) {
     macx:BOOST_LIB_SUFFIX = -mt
-    windows:BOOST_LIB_SUFFIX = -mgw92-mt-s-1_65
+    windows:BOOST_LIB_SUFFIX = -mgw10-mt-s-x64-1_73
 }
 
 isEmpty(BOOST_THREAD_LIB_SUFFIX) {
