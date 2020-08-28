@@ -297,12 +297,12 @@ static void NotifyAlertMapUpdated(AlertGui *alertGui, const uint256 &hash, Chang
 void AlertGui::subscribeToCoreSignals()
 {
     // Connect signals to client
-	uiInterface.NotifyAlertChanged.connect(boost::bind(NotifyAlertMapUpdated, this, _1, _2));
+	uiInterface.NotifyAlertChanged.connect(boost::bind(NotifyAlertMapUpdated, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
 void AlertGui::unsubscribeFromCoreSignals()
 {
     // Disconnect signals from client
-	uiInterface.NotifyAlertChanged.disconnect(boost::bind(NotifyAlertMapUpdated, this, _1, _2));
+	uiInterface.NotifyAlertChanged.disconnect(boost::bind(NotifyAlertMapUpdated, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
