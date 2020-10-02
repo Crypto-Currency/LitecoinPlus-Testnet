@@ -6,6 +6,7 @@
 - BUGFIX: verify message did not work with SSL 1.1, ECDA structure not initializing r and s BIGNUM
 - Added blockchain height display in Overview page
 - BUGFIX: compile with BOOST >= 1.70, get_io_service() method no more present (replaced by another)
+- USER REQUEST: make the command line option dialog resizable
 
 
 ***** Version 5.1.0.1b (INTERMEDIATE)
